@@ -1668,6 +1668,46 @@ export function setupAdrienStoreRoutes(app: Express) {
         ? Math.round(totalRevenue / paidOrdersCount) 
         : 0;
 
+      // Hitung trend harian (daily) & bulanan (monthly) dari pesanan riil
+      const dailyTrendMap: Record<string, { date: string; revenue: number; paidOrders: number; pendingOrders: number; totalOrders: number }> = {};
+      const monthlyTrendMap: Record<string, { month: string; revenue: number; paidOrders: number; pendingOrders: number; totalOrders: number }> = {};
+
+      orders.forEach((o: any) => {
+        if (!o.created_at) return;
+        const d = new Date(o.created_at);
+        if (isNaN(d.getTime())) return;
+        const dateStr = d.toISOString().split("T")[0];
+        const monthStr = dateStr.substring(0, 7);
+        const amount = Number(o.total_amount || 0);
+        const isPaid = o.payment_status === "PAID";
+        const isPending = o.payment_status === "PENDING";
+
+        if (!dailyTrendMap[dateStr]) {
+          dailyTrendMap[dateStr] = { date: dateStr, revenue: 0, paidOrders: 0, pendingOrders: 0, totalOrders: 0 };
+        }
+        dailyTrendMap[dateStr].totalOrders += 1;
+        if (isPaid) {
+          dailyTrendMap[dateStr].paidOrders += 1;
+          dailyTrendMap[dateStr].revenue += amount;
+        } else if (isPending) {
+          dailyTrendMap[dateStr].pendingOrders += 1;
+        }
+
+        if (!monthlyTrendMap[monthStr]) {
+          monthlyTrendMap[monthStr] = { month: monthStr, revenue: 0, paidOrders: 0, pendingOrders: 0, totalOrders: 0 };
+        }
+        monthlyTrendMap[monthStr].totalOrders += 1;
+        if (isPaid) {
+          monthlyTrendMap[monthStr].paidOrders += 1;
+          monthlyTrendMap[monthStr].revenue += amount;
+        } else if (isPending) {
+          monthlyTrendMap[monthStr].pendingOrders += 1;
+        }
+      });
+
+      const dailyTrends = Object.values(dailyTrendMap).sort((a, b) => a.date.localeCompare(b.date));
+      const monthlyTrends = Object.values(monthlyTrendMap).sort((a, b) => a.month.localeCompare(b.month));
+
       const funnel = [
         { 
           step: "Kunjungan Toko (Page Views)", 
@@ -1732,8 +1772,12 @@ export function setupAdrienStoreRoutes(app: Express) {
           averageOrderValue,
           funnel,
           recentEvents: recentEventsRes.rows || [],
-          productStats: productsWithAnalytics
+          productStats: productsWithAnalytics,
+          dailyTrends,
+          monthlyTrends
         },
+        dailyTrends,
+        monthlyTrends,
         settings: settingsRes.rows[0] || {},
         products: productsWithAnalytics,
         orders: orders,

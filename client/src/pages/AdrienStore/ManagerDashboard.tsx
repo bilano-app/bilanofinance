@@ -1,12 +1,27 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "wouter";
 import { 
   BarChart3, TrendingUp, Users, ShoppingBag, 
   Activity, RefreshCw, LogOut, ExternalLink, 
   MessageCircle, CheckCircle2, Clock, AlertCircle, 
   Send, Download, Lock, Check, ChevronRight, AlertTriangle,
-  RotateCcw, Eye, ArrowUpRight
+  RotateCcw, Eye, ArrowUpRight, Calendar, Sparkles, Layers,
+  DollarSign, Flag, Timer, PlusCircle, Edit3, Trash2, X
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend
+} from "recharts";
 import { formatCurrency } from "@/lib/utils";
 
 interface ProductStat {
@@ -54,6 +69,20 @@ interface AnalyticsEvent {
   created_at: string;
 }
 
+interface LapItem {
+  id: number;
+  lapNumber: number;
+  title: string;
+  notes: string;
+  date: string;
+  baseline: {
+    pageViews: number;
+    uniqueVisitors: number;
+    paidOrders: number;
+    revenue: number;
+  };
+}
+
 export default function ManagerDashboard() {
   // Auth State
   const [adminEmail, setAdminEmail] = useState<string>("");
@@ -92,6 +121,341 @@ export default function ManagerDashboard() {
   });
   const [products, setProducts] = useState<ProductStat[]>([]);
   const [orders, setOrders] = useState<OrderRecord[]>([]);
+
+  // 📈 State Grafik Penjualan Dinamis (1 Minggu, 1 Bulan, 1 Tahun)
+  const [timeScale, setTimeScale] = useState<"1W" | "1M" | "1Y">("1W");
+  const [chartMetric, setChartMetric] = useState<"revenue" | "orders" | "combined">("revenue");
+
+  // Format Helper untuk Tanggal Lokal (YYYY-MM-DD)
+  const getLocalDateKey = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  // Format Helper untuk Bulan Lokal (YYYY-MM)
+  const getLocalMonthKey = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    return `${year}-${month}`;
+  };
+
+  // Kalkulasi data time-series per skala
+  const chartData = useMemo(() => {
+    const now = new Date();
+
+    const ordersByDate: Record<string, { revenue: number; paidOrders: number; pendingOrders: number; totalOrders: number }> = {};
+    const ordersByMonth: Record<string, { revenue: number; paidOrders: number; pendingOrders: number; totalOrders: number }> = {};
+
+    orders.forEach((o) => {
+      if (!o.created_at) return;
+      const d = new Date(o.created_at);
+      if (isNaN(d.getTime())) return;
+
+      const dateKey = getLocalDateKey(d);
+      const monthKey = getLocalMonthKey(d);
+      const amount = Number(o.total_amount || 0);
+      const isPaid = o.payment_status === "PAID";
+      const isPending = o.payment_status === "PENDING";
+
+      // Harian
+      if (!ordersByDate[dateKey]) {
+        ordersByDate[dateKey] = { revenue: 0, paidOrders: 0, pendingOrders: 0, totalOrders: 0 };
+      }
+      ordersByDate[dateKey].totalOrders += 1;
+      if (isPaid) {
+        ordersByDate[dateKey].revenue += amount;
+        ordersByDate[dateKey].paidOrders += 1;
+      } else if (isPending) {
+        ordersByDate[dateKey].pendingOrders += 1;
+      }
+
+      // Bulanan
+      if (!ordersByMonth[monthKey]) {
+        ordersByMonth[monthKey] = { revenue: 0, paidOrders: 0, pendingOrders: 0, totalOrders: 0 };
+      }
+      ordersByMonth[monthKey].totalOrders += 1;
+      if (isPaid) {
+        ordersByMonth[monthKey].revenue += amount;
+        ordersByMonth[monthKey].paidOrders += 1;
+      } else if (isPending) {
+        ordersByMonth[monthKey].pendingOrders += 1;
+      }
+    });
+
+    if (timeScale === "1W") {
+      // 1 MINGGU: 7 hari terakhir - Grafik Batang (Hitungan per hari)
+      const dayNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+      const days = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+        const dateKey = getLocalDateKey(d);
+        const dayName = dayNames[d.getDay()];
+        const dayNumber = d.getDate();
+        const monthShort = d.toLocaleDateString("id-ID", { month: "short" });
+        const rec = ordersByDate[dateKey] || { revenue: 0, paidOrders: 0, pendingOrders: 0, totalOrders: 0 };
+
+        days.push({
+          date: dateKey,
+          label: `${dayName} (${dayNumber})`,
+          shortLabel: dayName,
+          fullLabel: `${dayName}, ${dayNumber} ${monthShort} ${d.getFullYear()}`,
+          revenue: rec.revenue,
+          paidOrders: rec.paidOrders,
+          pendingOrders: rec.pendingOrders,
+          totalOrders: rec.totalOrders,
+        });
+      }
+      return days;
+    }
+
+    if (timeScale === "1M") {
+      // 1 BULAN: 30 hari terakhir - Grafik Garis Saja (Hitungan per hari)
+      const days = [];
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+        const dateKey = getLocalDateKey(d);
+        const dayNumber = d.getDate();
+        const monthShort = d.toLocaleDateString("id-ID", { month: "short" });
+        const rec = ordersByDate[dateKey] || { revenue: 0, paidOrders: 0, pendingOrders: 0, totalOrders: 0 };
+
+        days.push({
+          date: dateKey,
+          label: `${dayNumber} ${monthShort}`,
+          shortLabel: `${dayNumber}`,
+          fullLabel: d.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }),
+          revenue: rec.revenue,
+          paidOrders: rec.paidOrders,
+          pendingOrders: rec.pendingOrders,
+          totalOrders: rec.totalOrders,
+        });
+      }
+      return days;
+    }
+
+    // 1 TAHUN: 12 bulan terakhir - Grafik Bebas / Tren Area (Hitungan per bulan)
+    const months = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = getLocalMonthKey(d);
+      const monthName = d.toLocaleDateString("id-ID", { month: "short" });
+      const yearShort = d.getFullYear().toString().slice(-2);
+      const rec = ordersByMonth[monthKey] || { revenue: 0, paidOrders: 0, pendingOrders: 0, totalOrders: 0 };
+
+      months.push({
+        month: monthKey,
+        label: `${monthName} '${yearShort}`,
+        shortLabel: monthName,
+        fullLabel: d.toLocaleDateString("id-ID", { month: "long", year: "numeric" }),
+        revenue: rec.revenue,
+        paidOrders: rec.paidOrders,
+        pendingOrders: rec.pendingOrders,
+        totalOrders: rec.totalOrders,
+      });
+    }
+    return months;
+  }, [orders, timeScale]);
+
+  // Statistik Ringkas Berdasarkan Periode Terpilih
+  const periodStats = useMemo(() => {
+    const totalRevenue = chartData.reduce((sum, d) => sum + d.revenue, 0);
+    const totalPaidOrders = chartData.reduce((sum, d) => sum + d.paidOrders, 0);
+    const totalPendingOrders = chartData.reduce((sum, d) => sum + d.pendingOrders, 0);
+    const dataCount = chartData.length || 1;
+    const avgRevenue = Math.round(totalRevenue / dataCount);
+
+    let peak = chartData[0];
+    chartData.forEach((d) => {
+      if ((d.revenue || 0) > (peak?.revenue || 0)) {
+        peak = d;
+      }
+    });
+
+    const periodName =
+      timeScale === "1W" ? "7 Hari Terakhir" : timeScale === "1M" ? "30 Hari Terakhir" : "12 Bulan Terakhir";
+    const unitText = timeScale === "1Y" ? "/ bulan" : "/ hari";
+
+    return {
+      totalRevenue,
+      totalPaidOrders,
+      totalPendingOrders,
+      avgRevenue,
+      peak,
+      periodName,
+      unitText,
+    };
+  }, [chartData, timeScale]);
+
+  // Format Helper Sumbu Y Chart
+  const formatYAxisCurrency = (val: number) => {
+    if (val >= 1_000_000) return `Rp ${(val / 1_000_000).toFixed(1)}jt`.replace(".0jt", "jt");
+    if (val >= 1_000) return `Rp ${Math.round(val / 1_000)}rb`;
+    return `Rp ${val}`;
+  };
+
+  const formatYAxisOrders = (val: number) => `${val}`;
+
+  // =========================================================================
+  // ⏱️ STATE LAP BENCHMARK & PEMISAHAN PERHITUNGAN (DIMULAI DARI 0)
+  // =========================================================================
+  const [laps, setLaps] = useState<LapItem[]>([]);
+  const [showLapModal, setShowLapModal] = useState(false);
+  const [lapInputTitle, setLapInputTitle] = useState("");
+  const [lapInputNotes, setLapInputNotes] = useState("");
+
+  // Edit Note State
+  const [editingLapId, setEditingLapId] = useState<number | null>(null);
+  const [editingLapNotes, setEditingLapNotes] = useState("");
+
+  // Load Laps dari localStorage saat mount
+  useEffect(() => {
+    const saved = localStorage.getItem("adrien_store_laps");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setLaps(parsed);
+          return;
+        }
+      } catch (e) {}
+    }
+
+    // Default Lap 1 Baseline Awal
+    const defaultLap1: LapItem = {
+      id: 1,
+      lapNumber: 1,
+      title: "Lap 1 (Awal Publikasi)",
+      notes: "Baseline awal peluncuran katalog e-book.",
+      date: new Date().toISOString(),
+      baseline: {
+        pageViews: 0,
+        uniqueVisitors: 0,
+        paidOrders: 0,
+        revenue: 0,
+      },
+    };
+    setLaps([defaultLap1]);
+    localStorage.setItem("adrien_store_laps", JSON.stringify([defaultLap1]));
+  }, []);
+
+  // Handler Buat Lap Baru
+  const handleCreateLap = (e: React.FormEvent) => {
+    e.preventDefault();
+    const nextLapNumber = laps.length + 1;
+    const title = lapInputTitle.trim() || `Lap ${nextLapNumber}`;
+    const notes = lapInputNotes.trim() || "Tidak ada catatan.";
+
+    const newLap: LapItem = {
+      id: Date.now(),
+      lapNumber: nextLapNumber,
+      title,
+      notes,
+      date: new Date().toISOString(),
+      baseline: {
+        pageViews: Number(stats.totalPageViews || 0),
+        uniqueVisitors: Number(stats.uniqueVisitors || 0),
+        paidOrders: Number(stats.paidOrdersCount || 0),
+        revenue: Number(stats.totalRevenue || 0),
+      },
+    };
+
+    const updated = [...laps, newLap];
+    setLaps(updated);
+    localStorage.setItem("adrien_store_laps", JSON.stringify(updated));
+
+    setLapInputTitle("");
+    setLapInputNotes("");
+    setShowLapModal(false);
+    triggerSuccess(`🏁 Berhasil mencatat ${title}! Kolom lap baru telah ditambahkan dan perhitungan dimulai dari 0.`);
+  };
+
+  // Handler Simpan Catatan Yang Diedit
+  const handleSaveEditNotes = (lapId: number) => {
+    const updated = laps.map((l) => (l.id === lapId ? { ...l, notes: editingLapNotes } : l));
+    setLaps(updated);
+    localStorage.setItem("adrien_store_laps", JSON.stringify(updated));
+    setEditingLapId(null);
+    setEditingLapNotes("");
+    triggerSuccess("Catatan lap berhasil diperbarui.");
+  };
+
+  // Handler Hapus Lap
+  const handleDeleteLap = (lapId: number) => {
+    if (laps.length <= 1) {
+      alert("Minimal harus ada 1 lap sebagai acuan.");
+      return;
+    }
+    const lapToDelete = laps.find((l) => l.id === lapId);
+    if (!confirm(`Hapus ${lapToDelete?.title || "Lap ini"} dari tabel evaluasi?`)) return;
+    const updated = laps.filter((l) => l.id !== lapId);
+    setLaps(updated);
+    localStorage.setItem("adrien_store_laps", JSON.stringify(updated));
+    triggerSuccess("Lap berhasil dihapus.");
+  };
+
+  // Handler Reset Seluruh Lap ke Baseline 1
+  const handleResetLaps = () => {
+    if (!confirm("Reset semua riwayat lap dan mulai kembali dari Lap 1 (0)?")) return;
+    const defaultLap1: LapItem = {
+      id: Date.now(),
+      lapNumber: 1,
+      title: "Lap 1 (Awal Publikasi)",
+      notes: "Baseline acuan awal toko.",
+      date: new Date().toISOString(),
+      baseline: {
+        pageViews: 0,
+        uniqueVisitors: 0,
+        paidOrders: 0,
+        revenue: 0,
+      },
+    };
+    setLaps([defaultLap1]);
+    localStorage.setItem("adrien_store_laps", JSON.stringify([defaultLap1]));
+    triggerSuccess("Riwayat lap berhasil direset ke Lap 1.");
+  };
+
+  // Kalkulasi Metrik Tiap Lap (Pemisahan Perhitungan Dimulai Dari 0)
+  const computedLaps = useMemo(() => {
+    const currentTotalViews = Number(stats.totalPageViews || 0);
+    const currentTotalUnique = Number(stats.uniqueVisitors || 0);
+    const currentTotalPaid = Number(stats.paidOrdersCount || 0);
+    const currentTotalRevenue = Number(stats.totalRevenue || 0);
+
+    return laps.map((lap, index) => {
+      const isLatest = index === laps.length - 1;
+      const nextLap = !isLatest ? laps[index + 1] : null;
+
+      // Batas atas (ceiling) saat lap ini di-lock oleh lap berikutnya
+      const endViews = nextLap ? nextLap.baseline.pageViews : currentTotalViews;
+      const endUnique = nextLap ? nextLap.baseline.uniqueVisitors : currentTotalUnique;
+      const endPaid = nextLap ? nextLap.baseline.paidOrders : currentTotalPaid;
+      const endRevenue = nextLap ? nextLap.baseline.revenue : currentTotalRevenue;
+
+      // Nilai Delta (Dimulai dari 0 untuk masing-masing lap)
+      const pageViews = Math.max(0, endViews - lap.baseline.pageViews);
+      const uniqueVisitors = Math.max(0, endUnique - lap.baseline.uniqueVisitors);
+      const paidOrders = Math.max(0, endPaid - lap.baseline.paidOrders);
+      const revenue = Math.max(0, endRevenue - lap.baseline.revenue);
+
+      // Tingkat Persentase Konversi
+      const divisor = uniqueVisitors > 0 ? uniqueVisitors : pageViews;
+      const conversionRate = divisor > 0 ? ((paidOrders / divisor) * 100).toFixed(2) + "%" : "0.00%";
+
+      return {
+        ...lap,
+        isLatest,
+        isCompleted: !isLatest,
+        metrics: {
+          pageViews,
+          uniqueVisitors,
+          paidOrders,
+          revenue,
+          conversionRate,
+        },
+      };
+    });
+  }, [laps, stats]);
 
   // Action States
   const [actionLoading, setActionLoading] = useState(false);
@@ -291,6 +655,62 @@ export default function ManagerDashboard() {
     }
     return true;
   });
+
+  // Tooltip Interaktif Kustom untuk Chart Performa
+  const CustomChartTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const item = payload[0].payload;
+      if (!item) return null;
+      return (
+        <div className="bg-[#0F2247] text-white p-3.5 rounded-2xl shadow-xl border border-blue-900/60 text-xs min-w-[210px] z-50 animate-in fade-in">
+          <div className="font-extrabold text-blue-200 border-b border-white/10 pb-1.5 mb-2.5 flex items-center justify-between gap-2">
+            <span>{item.fullLabel || label}</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-900/80 text-blue-300 font-mono">
+              {timeScale === "1Y" ? (item.month || "") : (item.date || "")}
+            </span>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-slate-300 flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#F6B93B]"></span>
+                Omzet Riil:
+              </span>
+              <span className="font-black text-[#F6B93B]">
+                {formatCurrency(item.revenue || 0)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-slate-300 flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                Transaksi Lunas:
+              </span>
+              <span className="font-black text-emerald-400">
+                {item.paidOrders || 0} pesanan
+              </span>
+            </div>
+            {item.pendingOrders > 0 && (
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-slate-400 flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                  Menunggu Bayar:
+                </span>
+                <span className="font-bold text-amber-300">
+                  {item.pendingOrders} leads
+                </span>
+              </div>
+            )}
+            {item.totalOrders > 0 && (
+              <div className="pt-1.5 border-t border-white/5 flex items-center justify-between gap-4 text-[10px] text-slate-400">
+                <span>Total Pesanan Masuk:</span>
+                <span className="font-semibold text-white">{item.totalOrders} total</span>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
 
   // =========================================================================
   // 🔒 LOGIN SCREEN
@@ -569,6 +989,830 @@ export default function ManagerDashboard() {
                 <div className="text-lg font-black text-slate-700 mt-0.5">{stats.pendingOrdersCount || 0} Prospek</div>
                 <div className="text-[10px] text-slate-500 font-medium">Siap di-follow up WhatsApp</div>
               </div>
+            </div>
+
+            {/* ========================================================================= */}
+            {/* 📈 GRAFIK PERFORMA PENJUALAN DINAMIS: 1 MINGGU, 1 BULAN, 1 TAHUN          */}
+            {/* ========================================================================= */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-6">
+              
+              {/* Header Grafik & Pengalih Skala Waktu */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-blue-50 text-[#1D3E72] flex items-center justify-center font-black shadow-2xs border border-blue-100">
+                      <BarChart3 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
+                        <span>Tren Performa Penjualan Riil</span>
+                        <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                          {timeScale === "1W" ? "Grafik Batang (Harian)" : timeScale === "1M" ? "Grafik Garis (Harian)" : "Grafik Area (Bulanan)"}
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Statistik fluktuasi omzet dan jumlah pesanan riil terverifikasi dari database toko.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3 PILIHAN SKALA WAKTU (1 Minggu, 1 Bulan, 1 Tahun) */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="inline-flex items-center p-1 bg-slate-100/90 rounded-2xl border border-slate-200/80 shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => setTimeScale("1W")}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                        timeScale === "1W"
+                          ? "bg-[#1D3E72] text-[#F6B93B] shadow-xs"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+                      }`}
+                      title="Skala 1 Minggu - Grafik Batang Per Hari"
+                    >
+                      <span>1 Minggu</span>
+                      <span className={`text-[9px] px-1.5 py-0.2 rounded-md uppercase font-extrabold ${
+                        timeScale === "1W" ? "bg-blue-900/60 text-blue-200" : "bg-slate-200 text-slate-500"
+                      }`}>
+                        Batang
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setTimeScale("1M")}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                        timeScale === "1M"
+                          ? "bg-[#1D3E72] text-[#F6B93B] shadow-xs"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+                      }`}
+                      title="Skala 1 Bulan - Grafik Garis Per Hari"
+                    >
+                      <span>1 Bulan</span>
+                      <span className={`text-[9px] px-1.5 py-0.2 rounded-md uppercase font-extrabold ${
+                        timeScale === "1M" ? "bg-blue-900/60 text-blue-200" : "bg-slate-200 text-slate-500"
+                      }`}>
+                        Garis
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setTimeScale("1Y")}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                        timeScale === "1Y"
+                          ? "bg-[#1D3E72] text-[#F6B93B] shadow-xs"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+                      }`}
+                      title="Skala 1 Tahun - Grafik Area Tren Bulanan"
+                    >
+                      <span>1 Tahun</span>
+                      <span className={`text-[9px] px-1.5 py-0.2 rounded-md uppercase font-extrabold ${
+                        timeScale === "1Y" ? "bg-blue-900/60 text-blue-200" : "bg-slate-200 text-slate-500"
+                      }`}>
+                        Tren Area
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sub-Toolbar: Pilihan Metrik & Legend Cepat */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/70 p-3 rounded-2xl border border-slate-200/60">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider mr-1">
+                    Tampilan Data:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setChartMetric("revenue")}
+                    className={`px-3 py-1 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      chartMetric === "revenue"
+                        ? "bg-[#1D3E72] text-[#F6B93B] shadow-xs"
+                        : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200/80"
+                    }`}
+                  >
+                    <span>💰 Omzet (Rp)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChartMetric("orders")}
+                    className={`px-3 py-1 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      chartMetric === "orders"
+                        ? "bg-emerald-700 text-white shadow-xs"
+                        : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200/80"
+                    }`}
+                  >
+                    <span>📦 Transaksi Lunas</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChartMetric("combined")}
+                    className={`px-3 py-1 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      chartMetric === "combined"
+                        ? "bg-slate-900 text-white shadow-xs"
+                        : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200/80"
+                    }`}
+                  >
+                    <span>📊 Dual-Axis (Keduanya)</span>
+                  </button>
+                </div>
+
+                <div className="text-[11px] font-semibold text-slate-500 flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>Data sinkron otomatis</span>
+                </div>
+              </div>
+
+              {/* 4 Kartu Ringkasan Periode Terpilih */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/70">
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                    Omzet ({periodStats.periodName})
+                  </div>
+                  <div className="text-base sm:text-xl font-black text-[#1D3E72] mt-0.5">
+                    {formatCurrency(periodStats.totalRevenue)}
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-medium">
+                    {periodStats.totalPaidOrders} pesanan terbayar
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/70">
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                    Transaksi Lunas
+                  </div>
+                  <div className="text-base sm:text-xl font-black text-emerald-700 mt-0.5">
+                    {periodStats.totalPaidOrders} Transaksi
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-medium">
+                    {periodStats.totalPendingOrders > 0
+                      ? `+${periodStats.totalPendingOrders} belum bayar`
+                      : "Tingkat bayar 100%"}
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/70">
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                    Rata-Rata Penjualan
+                  </div>
+                  <div className="text-base sm:text-xl font-black text-slate-800 mt-0.5">
+                    {formatCurrency(periodStats.avgRevenue)}
+                    <span className="text-[11px] font-medium text-slate-400 ml-1">
+                      {periodStats.unitText}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-medium">
+                    Rerata dalam periode aktif
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-blue-50/50 rounded-2xl border border-blue-200/60">
+                  <div className="text-[10px] font-black text-blue-700 uppercase tracking-wider flex items-center justify-between">
+                    <span>Puncak Tertinggi</span>
+                    <Sparkles className="w-3.5 h-3.5 text-[#F6B93B]" />
+                  </div>
+                  <div className="text-base sm:text-xl font-black text-[#1D3E72] mt-0.5">
+                    {periodStats.peak?.revenue ? formatCurrency(periodStats.peak.revenue) : "Rp 0"}
+                  </div>
+                  <div className="text-[10px] text-blue-700 font-medium truncate">
+                    {periodStats.peak?.label || "-"}
+                  </div>
+                </div>
+              </div>
+
+              {/* AREA GRAFIK RECHARTS INTERAKTIF */}
+              <div className="h-80 sm:h-96 w-full pt-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  {timeScale === "1W" ? (
+                    /* ------------------------------------------------------------- */
+                    /* 1 MINGGU: GRAFIK BATANG PER HARI (BAR CHART)                  */
+                    /* ------------------------------------------------------------- */
+                    <BarChart data={chartData} margin={{ top: 15, right: 15, left: -5, bottom: 5 }}>
+                      <defs>
+                        <linearGradient id="barGradRevenue" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#1D3E72" stopOpacity={0.95} />
+                          <stop offset="100%" stopColor="#2563EB" stopOpacity={0.75} />
+                        </linearGradient>
+                        <linearGradient id="barGradOrders" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#059669" stopOpacity={0.95} />
+                          <stop offset="100%" stopColor="#10B981" stopOpacity={0.75} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                      <XAxis
+                        dataKey="label"
+                        stroke="#94A3B8"
+                        fontSize={11}
+                        fontWeight={600}
+                        tickLine={false}
+                        axisLine={{ stroke: "#E2E8F0" }}
+                      />
+                      {chartMetric === "combined" ? (
+                        <>
+                          <YAxis
+                            yAxisId="left"
+                            stroke="#1D3E72"
+                            fontSize={10}
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={formatYAxisCurrency}
+                          />
+                          <YAxis
+                            yAxisId="right"
+                            orientation="right"
+                            stroke="#059669"
+                            fontSize={10}
+                            tickLine={false}
+                            axisLine={false}
+                            allowDecimals={false}
+                            tickFormatter={formatYAxisOrders}
+                          />
+                          <Tooltip content={<CustomChartTooltip />} />
+                          <Legend wrapperStyle={{ fontSize: "11px", fontWeight: "bold", paddingTop: "8px" }} />
+                          <Bar
+                            yAxisId="left"
+                            dataKey="revenue"
+                            name="Omzet Penjualan (Rp)"
+                            fill="url(#barGradRevenue)"
+                            radius={[6, 6, 0, 0]}
+                            maxBarSize={36}
+                          />
+                          <Bar
+                            yAxisId="right"
+                            dataKey="paidOrders"
+                            name="Transaksi Lunas"
+                            fill="url(#barGradOrders)"
+                            radius={[6, 6, 0, 0]}
+                            maxBarSize={28}
+                          />
+                        </>
+                      ) : chartMetric === "orders" ? (
+                        <>
+                          <YAxis
+                            stroke="#059669"
+                            fontSize={10}
+                            tickLine={false}
+                            axisLine={false}
+                            allowDecimals={false}
+                            tickFormatter={formatYAxisOrders}
+                          />
+                          <Tooltip content={<CustomChartTooltip />} />
+                          <Bar
+                            dataKey="paidOrders"
+                            name="Transaksi Lunas"
+                            fill="url(#barGradOrders)"
+                            radius={[8, 8, 0, 0]}
+                            maxBarSize={48}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <YAxis
+                            stroke="#1D3E72"
+                            fontSize={10}
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={formatYAxisCurrency}
+                          />
+                          <Tooltip content={<CustomChartTooltip />} />
+                          <Bar
+                            dataKey="revenue"
+                            name="Omzet Penjualan (Rp)"
+                            fill="url(#barGradRevenue)"
+                            radius={[8, 8, 0, 0]}
+                            maxBarSize={48}
+                          />
+                        </>
+                      )}
+                    </BarChart>
+                  ) : timeScale === "1M" ? (
+                    /* ------------------------------------------------------------- */
+                    /* 1 BULAN: GRAFIK GARIS SAJA PER HARI (LINE CHART)              */
+                    /* ------------------------------------------------------------- */
+                    <LineChart data={chartData} margin={{ top: 15, right: 15, left: -5, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                      <XAxis
+                        dataKey="label"
+                        stroke="#94A3B8"
+                        fontSize={10}
+                        fontWeight={600}
+                        tickLine={false}
+                        axisLine={{ stroke: "#E2E8F0" }}
+                        interval="preserveStartEnd"
+                      />
+                      {chartMetric === "combined" ? (
+                        <>
+                          <YAxis
+                            yAxisId="left"
+                            stroke="#1D3E72"
+                            fontSize={10}
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={formatYAxisCurrency}
+                          />
+                          <YAxis
+                            yAxisId="right"
+                            orientation="right"
+                            stroke="#059669"
+                            fontSize={10}
+                            tickLine={false}
+                            axisLine={false}
+                            allowDecimals={false}
+                            tickFormatter={formatYAxisOrders}
+                          />
+                          <Tooltip content={<CustomChartTooltip />} />
+                          <Legend wrapperStyle={{ fontSize: "11px", fontWeight: "bold", paddingTop: "8px" }} />
+                          <Line
+                            yAxisId="left"
+                            type="monotone"
+                            dataKey="revenue"
+                            name="Omzet Penjualan (Rp)"
+                            stroke="#1D3E72"
+                            strokeWidth={3}
+                            dot={{ r: 2.5, fill: "#1D3E72", strokeWidth: 1.5, stroke: "#ffffff" }}
+                            activeDot={{ r: 6, fill: "#F6B93B", stroke: "#1D3E72", strokeWidth: 2 }}
+                          />
+                          <Line
+                            yAxisId="right"
+                            type="monotone"
+                            dataKey="paidOrders"
+                            name="Transaksi Lunas"
+                            stroke="#059669"
+                            strokeWidth={2.5}
+                            strokeDasharray="4 4"
+                            dot={{ r: 2.5, fill: "#059669", strokeWidth: 1.5, stroke: "#ffffff" }}
+                            activeDot={{ r: 5, fill: "#F6B93B", stroke: "#059669", strokeWidth: 2 }}
+                          />
+                        </>
+                      ) : chartMetric === "orders" ? (
+                        <>
+                          <YAxis
+                            stroke="#059669"
+                            fontSize={10}
+                            tickLine={false}
+                            axisLine={false}
+                            allowDecimals={false}
+                            tickFormatter={formatYAxisOrders}
+                          />
+                          <Tooltip content={<CustomChartTooltip />} />
+                          <Line
+                            type="monotone"
+                            dataKey="paidOrders"
+                            name="Transaksi Lunas"
+                            stroke="#059669"
+                            strokeWidth={3}
+                            dot={{ r: 2.5, fill: "#059669", strokeWidth: 1.5, stroke: "#ffffff" }}
+                            activeDot={{ r: 6, fill: "#F6B93B", stroke: "#059669", strokeWidth: 2 }}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <YAxis
+                            stroke="#1D3E72"
+                            fontSize={10}
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={formatYAxisCurrency}
+                          />
+                          <Tooltip content={<CustomChartTooltip />} />
+                          <Line
+                            type="monotone"
+                            dataKey="revenue"
+                            name="Omzet Penjualan (Rp)"
+                            stroke="#1D3E72"
+                            strokeWidth={3}
+                            dot={{ r: 2.5, fill: "#1D3E72", strokeWidth: 1.5, stroke: "#ffffff" }}
+                            activeDot={{ r: 6, fill: "#F6B93B", stroke: "#1D3E72", strokeWidth: 2 }}
+                          />
+                        </>
+                      )}
+                    </LineChart>
+                  ) : (
+                    /* ------------------------------------------------------------- */
+                    /* 1 TAHUN: GRAFIK BEBAS BENTUKNYA (AREA TREN BULANAN)           */
+                    /* ------------------------------------------------------------- */
+                    <AreaChart data={chartData} margin={{ top: 15, right: 15, left: -5, bottom: 5 }}>
+                      <defs>
+                        <linearGradient id="areaYearGradRevenue" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#1D3E72" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#2563EB" stopOpacity={0.02} />
+                        </linearGradient>
+                        <linearGradient id="areaYearGradOrders" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10B981" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#059669" stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                      <XAxis
+                        dataKey="label"
+                        stroke="#94A3B8"
+                        fontSize={11}
+                        fontWeight={600}
+                        tickLine={false}
+                        axisLine={{ stroke: "#E2E8F0" }}
+                      />
+                      {chartMetric === "combined" ? (
+                        <>
+                          <YAxis
+                            yAxisId="left"
+                            stroke="#1D3E72"
+                            fontSize={10}
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={formatYAxisCurrency}
+                          />
+                          <YAxis
+                            yAxisId="right"
+                            orientation="right"
+                            stroke="#059669"
+                            fontSize={10}
+                            tickLine={false}
+                            axisLine={false}
+                            allowDecimals={false}
+                            tickFormatter={formatYAxisOrders}
+                          />
+                          <Tooltip content={<CustomChartTooltip />} />
+                          <Legend wrapperStyle={{ fontSize: "11px", fontWeight: "bold", paddingTop: "8px" }} />
+                          <Area
+                            yAxisId="left"
+                            type="monotone"
+                            dataKey="revenue"
+                            name="Omzet Penjualan (Rp)"
+                            stroke="#1D3E72"
+                            strokeWidth={3.5}
+                            fill="url(#areaYearGradRevenue)"
+                            dot={{ r: 3.5, fill: "#1D3E72", strokeWidth: 2, stroke: "#ffffff" }}
+                            activeDot={{ r: 7, fill: "#F6B93B", stroke: "#1D3E72", strokeWidth: 2 }}
+                          />
+                          <Line
+                            yAxisId="right"
+                            type="monotone"
+                            dataKey="paidOrders"
+                            name="Transaksi Lunas"
+                            stroke="#059669"
+                            strokeWidth={2.5}
+                            strokeDasharray="4 4"
+                            dot={{ r: 3, fill: "#059669", strokeWidth: 1.5, stroke: "#ffffff" }}
+                            activeDot={{ r: 6, fill: "#F6B93B", stroke: "#059669", strokeWidth: 2 }}
+                          />
+                        </>
+                      ) : chartMetric === "orders" ? (
+                        <>
+                          <YAxis
+                            stroke="#059669"
+                            fontSize={10}
+                            tickLine={false}
+                            axisLine={false}
+                            allowDecimals={false}
+                            tickFormatter={formatYAxisOrders}
+                          />
+                          <Tooltip content={<CustomChartTooltip />} />
+                          <Area
+                            type="monotone"
+                            dataKey="paidOrders"
+                            name="Transaksi Lunas"
+                            stroke="#059669"
+                            strokeWidth={3.5}
+                            fill="url(#areaYearGradOrders)"
+                            dot={{ r: 3.5, fill: "#059669", strokeWidth: 2, stroke: "#ffffff" }}
+                            activeDot={{ r: 7, fill: "#F6B93B", stroke: "#059669", strokeWidth: 2 }}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <YAxis
+                            stroke="#1D3E72"
+                            fontSize={10}
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={formatYAxisCurrency}
+                          />
+                          <Tooltip content={<CustomChartTooltip />} />
+                          <Area
+                            type="monotone"
+                            dataKey="revenue"
+                            name="Omzet Penjualan (Rp)"
+                            stroke="#1D3E72"
+                            strokeWidth={3.5}
+                            fill="url(#areaYearGradRevenue)"
+                            dot={{ r: 3.5, fill: "#1D3E72", strokeWidth: 2, stroke: "#ffffff" }}
+                            activeDot={{ r: 7, fill: "#F6B93B", stroke: "#1D3E72", strokeWidth: 2 }}
+                          />
+                        </>
+                      )}
+                    </AreaChart>
+                  )}
+                </ResponsiveContainer>
+              </div>
+
+              {/* Catatan Footnote Visual */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-2 border-t border-slate-100 text-[11px] text-slate-500">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-slate-700">Panduan Skala:</span>
+                  <span>
+                    {timeScale === "1W"
+                      ? "Skala 1 Minggu menggunakan grafik batang per hari (7 hari terakhir)."
+                      : timeScale === "1M"
+                      ? "Skala 1 Bulan menggunakan grafik garis per hari (30 hari terakhir)."
+                      : "Skala 1 Tahun menggunakan grafik area tren per bulan (12 bulan terakhir)."}
+                  </span>
+                </div>
+                <div className="font-semibold text-slate-400">
+                  Total {orders.length} Pesanan Terdata
+                </div>
+              </div>
+
+            </div>
+
+            {/* ========================================================================= */}
+            {/* ⏱️ SESI EKSPERIMEN & EVALUASI LAP (PEMISAHAN PERHITUNGAN DIMULAI DARI 0)   */}
+            {/* ========================================================================= */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-6">
+              
+              {/* Header Card dengan Tombol Lap Utama */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center font-black border border-amber-200 shadow-2xs">
+                    <Flag className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-black text-base text-slate-900">
+                        Evaluasi Performa per Lap (Pemisahan Perhitungan)
+                      </h3>
+                      <span className="text-[10px] font-black uppercase text-amber-800 bg-amber-100/80 px-2.5 py-0.5 rounded-full border border-amber-300">
+                        {computedLaps.length} Lap Tercatat
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Pemisahan perhitungan pengunjung dan konversi. Setiap membuat lap baru, hitungan dimulai dari 0.
+                    </p>
+                  </div>
+                </div>
+
+                {/* TOMBOL LAP UTAMA */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLapInputTitle(`Lap ${laps.length + 1}`);
+                      setLapInputNotes("");
+                      setShowLapModal(true);
+                    }}
+                    className="px-4 py-2.5 bg-gradient-to-r from-[#1D3E72] to-[#2563EB] hover:from-[#152e55] hover:to-[#1d4ed8] text-[#F6B93B] rounded-2xl text-xs font-black transition-all flex items-center gap-2 shadow-sm hover:shadow-md cursor-pointer border border-blue-400/30"
+                    title="Tambah Lap Baru (Mulai Dari 0)"
+                  >
+                    <PlusCircle className="w-4 h-4 text-[#F6B93B]" />
+                    <span>Tombol Lap (+ Catat Lap Baru)</span>
+                  </button>
+
+                  {laps.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={handleResetLaps}
+                      className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-colors border border-slate-200/60 cursor-pointer"
+                      title="Reset Semua Lap ke Lap 1"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* TABEL PERFORMA LAP (KOLOM BERTAMBAH KE SAMPING) */}
+              <div className="overflow-x-auto border border-slate-200/80 rounded-2xl shadow-2xs bg-slate-50/30">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100/80 border-b border-slate-200">
+                      {/* Kolom 0: Label Metrik */}
+                      <th className="py-4 px-5 text-slate-500 uppercase text-[10px] font-black min-w-[200px] sticky left-0 bg-slate-100 z-10 border-r border-slate-200 shadow-xs">
+                        Indikator & Metrik Lap
+                      </th>
+
+                      {/* Kolom-kolom Lap Dinamis */}
+                      {computedLaps.map((lap) => (
+                        <th
+                          key={lap.id}
+                          className={`py-4 px-5 min-w-[220px] max-w-[260px] border-r border-slate-200 last:border-r-0 ${
+                            lap.isLatest ? "bg-amber-50/50" : "bg-white"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#1D3E72] text-[#F6B93B]">
+                              LAP #{lap.lapNumber}
+                            </span>
+                            {lap.isLatest ? (
+                              <span className="text-[9px] font-black uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                Sedang Aktif
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-bold uppercase text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                                🔒 Terkunci
+                              </span>
+                            )}
+                          </div>
+                          <div className="font-black text-slate-900 text-sm mt-1.5 line-clamp-1" title={lap.title}>
+                            {lap.title}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                            {new Date(lap.date).toLocaleDateString("id-ID", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-200">
+                    {/* Baris 1: Jumlah Pengunjung (Dimulai dari 0) */}
+                    <tr className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-4 px-5 font-bold text-slate-700 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-blue-600" />
+                          <span className="font-extrabold text-slate-900">Jumlah Pengunjung</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-medium ml-6">
+                          Views toko pada lap ini (dimulai dari 0)
+                        </div>
+                      </td>
+
+                      {computedLaps.map((lap) => (
+                        <td
+                          key={lap.id}
+                          className={`py-4 px-5 border-r border-slate-200 last:border-r-0 ${
+                            lap.isLatest ? "bg-amber-50/20" : "bg-white"
+                          }`}
+                        >
+                          <div className="text-xl font-black text-slate-900">
+                            {lap.metrics.pageViews} <span className="text-xs font-semibold text-slate-500">Views</span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                            {lap.metrics.uniqueVisitors} user unik terdeteksi
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
+
+                    {/* Baris 2: Tingkat Persentase Konversi (%) */}
+                    <tr className="hover:bg-slate-50/80 transition-colors bg-slate-50/30">
+                      <td className="py-4 px-5 font-bold text-slate-700 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4 text-emerald-600" />
+                          <span className="font-extrabold text-slate-900">Tingkat Konversi (%)</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-medium ml-6">
+                          Persentase pengunjung jadi pembeli
+                        </div>
+                      </td>
+
+                      {computedLaps.map((lap) => (
+                        <td
+                          key={lap.id}
+                          className={`py-4 px-5 border-r border-slate-200 last:border-r-0 ${
+                            lap.isLatest ? "bg-amber-50/20" : "bg-white"
+                          }`}
+                        >
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 border border-emerald-200">
+                            <span className="text-lg font-black text-emerald-700">
+                              {lap.metrics.conversionRate}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 font-semibold mt-1">
+                            {lap.metrics.paidOrders} bayar / {lap.metrics.uniqueVisitors || lap.metrics.pageViews || 0} pengunjung
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
+
+                    {/* Baris 3: Transaksi Lunas */}
+                    <tr className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-4 px-5 font-bold text-slate-700 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                        <div className="flex items-center gap-2">
+                          <ShoppingBag className="w-4 h-4 text-[#1D3E72]" />
+                          <span className="font-extrabold text-slate-900">Transaksi Lunas</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-medium ml-6">
+                          Pesanan terbayar di lap ini
+                        </div>
+                      </td>
+
+                      {computedLaps.map((lap) => (
+                        <td
+                          key={lap.id}
+                          className={`py-4 px-5 border-r border-slate-200 last:border-r-0 ${
+                            lap.isLatest ? "bg-amber-50/20" : "bg-white"
+                          }`}
+                        >
+                          <div className="text-base font-black text-slate-900">
+                            {lap.metrics.paidOrders} <span className="text-xs font-normal text-slate-500">Pesanan</span>
+                          </div>
+                          <div className="text-[10px] text-emerald-700 font-semibold mt-0.5">
+                            Status Terbayar Lunas
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
+
+                    {/* Baris 4: Omzet Riil */}
+                    <tr className="hover:bg-slate-50/80 transition-colors bg-slate-50/30">
+                      <td className="py-4 px-5 font-bold text-slate-700 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="w-4 h-4 text-[#1D3E72]" />
+                          <span className="font-extrabold text-slate-900">Omzet Penjualan</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-medium ml-6">
+                          Total rupiah yang masuk pada lap ini
+                        </div>
+                      </td>
+
+                      {computedLaps.map((lap) => (
+                        <td
+                          key={lap.id}
+                          className={`py-4 px-5 border-r border-slate-200 last:border-r-0 ${
+                            lap.isLatest ? "bg-amber-50/20" : "bg-white"
+                          }`}
+                        >
+                          <div className="text-base font-black text-[#1D3E72]">
+                            {formatCurrency(lap.metrics.revenue)}
+                          </div>
+                          <div className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                            Omzet riil lap #{lap.lapNumber}
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
+
+                    {/* Baris 5: Isian Catatan / Keterangan Eksperimen */}
+                    <tr className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-4 px-5 font-bold text-slate-700 sticky left-0 bg-slate-50 z-10 border-r border-slate-200 align-top">
+                        <div className="flex items-center gap-2">
+                          <Edit3 className="w-4 h-4 text-amber-600" />
+                          <span className="font-extrabold text-slate-900">Catatan & Keterangan</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-medium ml-6">
+                          Uji coba strategi, promo, atau catatan
+                        </div>
+                      </td>
+
+                      {computedLaps.map((lap) => (
+                        <td
+                          key={lap.id}
+                          className={`py-4 px-5 border-r border-slate-200 last:border-r-0 align-top ${
+                            lap.isLatest ? "bg-amber-50/20" : "bg-white"
+                          }`}
+                        >
+                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-xs text-slate-700 leading-relaxed font-medium min-h-[70px]">
+                            {lap.notes || "Belum ada catatan untuk lap ini."}
+                          </div>
+                          <div className="flex items-center justify-between gap-2 mt-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingLapId(lap.id);
+                                setEditingLapNotes(lap.notes || "");
+                              }}
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 hover:underline cursor-pointer"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                              <span>Edit Catatan</span>
+                            </button>
+
+                            {lap.lapNumber > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteLap(lap.id)}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-500 hover:text-rose-700 cursor-pointer"
+                                title="Hapus Lap"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>Hapus</span>
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Tips panduan perbandingan */}
+              <div className="p-3.5 bg-blue-50/60 rounded-2xl border border-blue-100 flex items-start sm:items-center justify-between gap-3 text-xs text-blue-900">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#F6B93B] shrink-0" />
+                  <p className="text-[11px] text-blue-800 font-medium">
+                    <strong>Cara Kerja Pemisahan Lap:</strong> Setiap kali Anda menekan <strong>"Tombol Lap"</strong>, data toko saat ini dijadikan batas dasar (baseline) dan kolom baru akan langsung <strong>dimulai dari 0</strong> untuk mengamati lonjakan pengunjung & persentase konversi strategi baru Anda.
+                  </p>
+                </div>
+              </div>
+
             </div>
 
             {/* SALES FUNNEL RIIL */}
@@ -1089,6 +2333,147 @@ export default function ManagerDashboard() {
                 className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-black text-xs transition-colors flex items-center justify-center gap-2 shadow-md cursor-pointer disabled:opacity-50"
               >
                 {resetLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : "Ya, Reset Total ke 0"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 🏁 MODAL POPUP: CATAT LAP BARU (PEMISAHAN PERHITUNGAN)                    */}
+      {/* ========================================================================= */}
+      {showLapModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 border border-slate-200 shadow-2xl space-y-5 animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-black border border-amber-200 shadow-2xs">
+                  <Flag className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-full border border-amber-300">
+                    Pemisahan Periode
+                  </span>
+                  <h3 className="text-base font-black text-slate-900 mt-0.5">
+                    Catat Lap Baru #{laps.length + 1}
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLapModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateLap} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Nama / Judul Lap:
+                </label>
+                <input
+                  type="text"
+                  value={lapInputTitle}
+                  onChange={(e) => setLapInputTitle(e.target.value)}
+                  placeholder={`Contoh: Lap ${laps.length + 1} - Uji Coba Promo Reels 20%`}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#1D3E72] focus:border-transparent font-medium"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Catatan / Keterangan Eksperimen:
+                </label>
+                <textarea
+                  value={lapInputNotes}
+                  onChange={(e) => setLapInputNotes(e.target.value)}
+                  placeholder="Tulis keterangan strategi, perubahan hook video, promo diskon, atau perubahan copywriting yang sedang Anda jalankan pada lap ini..."
+                  rows={3}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#1D3E72] focus:border-transparent font-medium resize-none"
+                  required
+                />
+              </div>
+
+              <div className="p-3.5 bg-blue-50/70 rounded-2xl border border-blue-100 text-xs text-blue-900 space-y-1.5">
+                <div className="font-extrabold flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Mekanisme Pemisahan Hitungan:</span>
+                </div>
+                <p className="text-[11px] text-blue-800 leading-relaxed">
+                  Lap sebelumnya akan otomatis dikunci pada angka saat ini ({stats.totalPageViews || 0} views, {stats.paidOrdersCount || 0} pembeli). Kolom untuk <strong>Lap #{laps.length + 1}</strong> akan langsung ditambahkan ke tabel dan <strong>dimulai dari 0</strong> untuk mengamati performa independennya.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowLapModal(false)}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl text-xs font-black bg-[#1D3E72] hover:bg-[#152e55] text-[#F6B93B] shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Flag className="w-3.5 h-3.5" />
+                  <span>Simpan & Buka Lap Baru</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ✏️ MODAL EDIT CATATAN LAP                                                 */}
+      {/* ========================================================================= */}
+      {editingLapId !== null && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-slate-200 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-blue-600" />
+                <span>Edit Catatan Lap</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingLapId(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Isi Catatan / Keterangan:
+              </label>
+              <textarea
+                value={editingLapNotes}
+                onChange={(e) => setEditingLapNotes(e.target.value)}
+                rows={4}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#1D3E72] font-medium resize-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setEditingLapId(null)}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSaveEditNotes(editingLapId)}
+                className="px-4 py-2 rounded-xl text-xs font-black bg-[#1D3E72] text-[#F6B93B] shadow-xs cursor-pointer"
+              >
+                Simpan Catatan
               </button>
             </div>
           </div>
