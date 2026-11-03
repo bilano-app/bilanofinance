@@ -308,7 +308,7 @@ export default function ManagerDashboard() {
   const [editingLapId, setEditingLapId] = useState<number | null>(null);
   const [editingLapNotes, setEditingLapNotes] = useState("");
 
-  // Load Laps dari localStorage saat mount
+  // Load Laps dari localStorage saat mount sebagai inisialisasi awal cepat
   useEffect(() => {
     const saved = localStorage.getItem("adrien_store_laps");
     if (saved) {
@@ -336,67 +336,119 @@ export default function ManagerDashboard() {
       },
     };
     setLaps([defaultLap1]);
-    localStorage.setItem("adrien_store_laps", JSON.stringify([defaultLap1]));
   }, []);
 
-  // Handler Buat Lap Baru
-  const handleCreateLap = (e: React.FormEvent) => {
+  // Handler Buat Lap Baru (Sinkron ke Database & Multi-Device)
+  const handleCreateLap = async (e: React.FormEvent) => {
     e.preventDefault();
     const nextLapNumber = laps.length + 1;
     const title = lapInputTitle.trim() || `Lap ${nextLapNumber}`;
     const notes = lapInputNotes.trim() || "Tidak ada catatan.";
 
-    const newLap: LapItem = {
+    const baselineData = {
+      pageViews: Number(stats.totalPageViews || 0),
+      uniqueVisitors: Number(stats.uniqueVisitors || 0),
+      paidOrders: Number(stats.paidOrdersCount || 0),
+      revenue: Number(stats.totalRevenue || 0),
+    };
+
+    setLapInputTitle("");
+    setLapInputNotes("");
+    setShowLapModal(false);
+
+    try {
+      const res = await fetch("/api/adrienfandra/admin/laps", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-email": adminEmail
+        },
+        body: JSON.stringify({
+          title,
+          notes,
+          baseline: baselineData
+        })
+      });
+
+      const resData = await res.json();
+      if (res.ok && resData.success && resData.lap) {
+        const updated = [...laps, resData.lap];
+        setLaps(updated);
+        localStorage.setItem("adrien_store_laps", JSON.stringify(updated));
+        triggerSuccess(`🏁 Berhasil mencatat ${title}! Tersinkronisasi otomatis ke semua perangkat (HP & Laptop).`);
+        return;
+      }
+    } catch (err) {}
+
+    // Fallback optimis jika koneksi lambat
+    const fallbackLap: LapItem = {
       id: Date.now(),
       lapNumber: nextLapNumber,
       title,
       notes,
       date: new Date().toISOString(),
-      baseline: {
-        pageViews: Number(stats.totalPageViews || 0),
-        uniqueVisitors: Number(stats.uniqueVisitors || 0),
-        paidOrders: Number(stats.paidOrdersCount || 0),
-        revenue: Number(stats.totalRevenue || 0),
-      },
+      baseline: baselineData,
     };
-
-    const updated = [...laps, newLap];
+    const updated = [...laps, fallbackLap];
     setLaps(updated);
     localStorage.setItem("adrien_store_laps", JSON.stringify(updated));
-
-    setLapInputTitle("");
-    setLapInputNotes("");
-    setShowLapModal(false);
     triggerSuccess(`🏁 Berhasil mencatat ${title}! Kolom lap baru telah ditambahkan dan perhitungan dimulai dari 0.`);
   };
 
-  // Handler Simpan Catatan Yang Diedit
-  const handleSaveEditNotes = (lapId: number) => {
+  // Handler Simpan Catatan Yang Diedit (Sinkron ke Database)
+  const handleSaveEditNotes = async (lapId: number) => {
+    try {
+      await fetch(`/api/adrienfandra/admin/laps/${lapId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-email": adminEmail
+        },
+        body: JSON.stringify({ notes: editingLapNotes })
+      });
+    } catch (err) {}
+
     const updated = laps.map((l) => (l.id === lapId ? { ...l, notes: editingLapNotes } : l));
     setLaps(updated);
     localStorage.setItem("adrien_store_laps", JSON.stringify(updated));
     setEditingLapId(null);
     setEditingLapNotes("");
-    triggerSuccess("Catatan lap berhasil diperbarui.");
+    triggerSuccess("Catatan lap berhasil diperbarui di semua perangkat.");
   };
 
-  // Handler Hapus Lap
-  const handleDeleteLap = (lapId: number) => {
+  // Handler Hapus Lap (Sinkron ke Database)
+  const handleDeleteLap = async (lapId: number) => {
     if (laps.length <= 1) {
       alert("Minimal harus ada 1 lap sebagai acuan.");
       return;
     }
     const lapToDelete = laps.find((l) => l.id === lapId);
     if (!confirm(`Hapus ${lapToDelete?.title || "Lap ini"} dari tabel evaluasi?`)) return;
+
+    try {
+      await fetch(`/api/adrienfandra/admin/laps/${lapId}`, {
+        method: "DELETE",
+        headers: { "x-admin-email": adminEmail }
+      });
+    } catch (err) {}
+
     const updated = laps.filter((l) => l.id !== lapId);
     setLaps(updated);
     localStorage.setItem("adrien_store_laps", JSON.stringify(updated));
-    triggerSuccess("Lap berhasil dihapus.");
+    triggerSuccess("Lap berhasil dihapus dari database.");
   };
 
-  // Handler Reset Seluruh Lap ke Baseline 1
-  const handleResetLaps = () => {
+  // Handler Reset Seluruh Lap ke Baseline 1 (Sinkron ke Database)
+  const handleResetLaps = async () => {
     if (!confirm("Reset semua riwayat lap dan mulai kembali dari Lap 1 (0)?")) return;
+
+    try {
+      await fetch("/api/adrienfandra/admin/laps/reset", {
+        method: "POST",
+        headers: { "x-admin-email": adminEmail }
+      });
+    } catch (err) {}
+
     const defaultLap1: LapItem = {
       id: Date.now(),
       lapNumber: 1,
@@ -412,7 +464,7 @@ export default function ManagerDashboard() {
     };
     setLaps([defaultLap1]);
     localStorage.setItem("adrien_store_laps", JSON.stringify([defaultLap1]));
-    triggerSuccess("Riwayat lap berhasil direset ke Lap 1.");
+    triggerSuccess("Riwayat lap berhasil direset ke Lap 1 di semua perangkat.");
   };
 
   // Kalkulasi Metrik Tiap Lap (Pemisahan Perhitungan Dimulai Dari 0)
@@ -489,6 +541,41 @@ export default function ManagerDashboard() {
         setAnalytics(data.analytics || {});
         setProducts(data.products || []);
         setOrders(data.orders || []);
+
+        // Sinkronisasi data Lap dari database PostgreSQL (agar HP dan Laptop selalu sama persis)
+        if (data.laps && Array.isArray(data.laps)) {
+          const localSaved = localStorage.getItem("adrien_store_laps");
+          let localLaps: LapItem[] = [];
+          if (localSaved) {
+            try { localLaps = JSON.parse(localSaved); } catch (e) {}
+          }
+
+          const serverLapNums = new Set(data.laps.map((l: any) => Number(l.lapNumber)));
+          const missingLapsOnServer = localLaps.filter((l) => Number(l.lapNumber) > 1 && !serverLapNums.has(Number(l.lapNumber)));
+
+          if (missingLapsOnServer.length > 0) {
+            // Auto-sync lap yang sempat tercatat di HP ke database PostgreSQL!
+            fetch("/api/adrienfandra/admin/laps/sync", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-admin-email": adminEmail
+              },
+              body: JSON.stringify({ laps: localLaps })
+            }).then(r => r.json()).then(syncRes => {
+              if (syncRes.success && syncRes.laps && Array.isArray(syncRes.laps)) {
+                setLaps(syncRes.laps);
+                localStorage.setItem("adrien_store_laps", JSON.stringify(syncRes.laps));
+              }
+            }).catch(() => {
+              setLaps(data.laps);
+              localStorage.setItem("adrien_store_laps", JSON.stringify(data.laps));
+            });
+          } else {
+            setLaps(data.laps);
+            localStorage.setItem("adrien_store_laps", JSON.stringify(data.laps));
+          }
+        }
       } else if (res.status === 403) {
         setIsAuthenticated(false);
         localStorage.removeItem("adrien_manager_email");

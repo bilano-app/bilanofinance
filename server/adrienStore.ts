@@ -172,6 +172,21 @@ export async function ensureAdrienStoreTables() {
       );
     `);
 
+    // 7. Tabel Pencatatan Benchmark Lap (Sinkron Multi-Device Laptop & HP)
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS adrien_store_laps (
+        id SERIAL PRIMARY KEY,
+        lap_number INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        notes TEXT DEFAULT '',
+        baseline_page_views INTEGER DEFAULT 0,
+        baseline_unique_visitors INTEGER DEFAULT 0,
+        baseline_paid_orders INTEGER DEFAULT 0,
+        baseline_revenue BIGINT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
     // Seed default data HANYA jika tabel belum memiliki data sama sekali
     await seedDefaultAdrienStoreData();
   } catch (error) {
@@ -395,6 +410,18 @@ async function seedDefaultAdrienStoreData() {
          OR slot_images = '["", "", ""]'::jsonb 
          OR slot_images = '[]'::jsonb;
     `);
+
+    // 4. Cek Seed Lap 1 untuk Evaluasi Benchmark
+    const lapsCheck = await db.execute(sql`SELECT COUNT(*) as count FROM adrien_store_laps`);
+    if (Number(lapsCheck.rows[0]?.count || 0) === 0) {
+      await db.execute(sql`
+        INSERT INTO adrien_store_laps (
+          lap_number, title, notes, baseline_page_views, baseline_unique_visitors, baseline_paid_orders, baseline_revenue
+        ) VALUES (
+          1, 'Lap 1 (Awal Publikasi)', 'Baseline awal peluncuran katalog e-book.', 0, 0, 0, 0
+        )
+      `);
+    }
 
     console.log("[AdrienStore] Tables & Seed Data ready.");
   } catch (error) {
@@ -1607,7 +1634,8 @@ export function setupAdrienStoreRoutes(app: Express) {
         productClicksRes,
         recentEventsRes,
         productClickCountsRes,
-        checkoutEventsRes
+        checkoutEventsRes,
+        lapsRes
       ] = await Promise.all([
         db.execute(sql`SELECT * FROM adrien_store_settings LIMIT 1`),
         db.execute(sql`SELECT id, slug, title, subtitle, category, cover_url, promo_images, regular_price, sale_price, sales_headline, sales_body, highlights, testimonials, scarcity_text, reader_count, whatsapp_number, pdf_filename, is_active, sort_order, created_at, (pdf_data_base64 IS NOT NULL) AS has_custom_pdf FROM adrien_products ORDER BY sort_order ASC, id ASC`),
@@ -1623,8 +1651,36 @@ export function setupAdrienStoreRoutes(app: Express) {
           WHERE event_type = 'PRODUCT_CLICK' AND product_id IS NOT NULL 
           GROUP BY product_id
         `),
-        db.execute(sql`SELECT COUNT(*) as count FROM adrien_analytics_events WHERE event_type IN ('CHECKOUT_START', 'CHECKOUT_OPEN')`)
+        db.execute(sql`SELECT COUNT(*) as count FROM adrien_analytics_events WHERE event_type IN ('CHECKOUT_START', 'CHECKOUT_OPEN')`),
+        db.execute(sql`SELECT * FROM adrien_store_laps ORDER BY lap_number ASC, id ASC`)
       ]);
+
+      let rawLaps = lapsRes.rows || [];
+      if (rawLaps.length === 0) {
+        await db.execute(sql`
+          INSERT INTO adrien_store_laps (
+            lap_number, title, notes, baseline_page_views, baseline_unique_visitors, baseline_paid_orders, baseline_revenue
+          ) VALUES (
+            1, 'Lap 1 (Awal Publikasi)', 'Baseline awal peluncuran katalog e-book.', 0, 0, 0, 0
+          )
+        `);
+        const freshLaps = await db.execute(sql`SELECT * FROM adrien_store_laps ORDER BY lap_number ASC, id ASC`);
+        rawLaps = freshLaps.rows || [];
+      }
+
+      const formattedLaps = rawLaps.map((r: any) => ({
+        id: Number(r.id),
+        lapNumber: Number(r.lap_number),
+        title: r.title,
+        notes: r.notes || "",
+        date: r.created_at,
+        baseline: {
+          pageViews: Number(r.baseline_page_views || 0),
+          uniqueVisitors: Number(r.baseline_unique_visitors || 0),
+          paidOrders: Number(r.baseline_paid_orders || 0),
+          revenue: Number(r.baseline_revenue || 0)
+        }
+      }));
 
       const orders = ordersRes.rows || [];
       const paidOrders = orders.filter((o: any) => o.payment_status === "PAID");
@@ -1778,6 +1834,7 @@ export function setupAdrienStoreRoutes(app: Express) {
         },
         dailyTrends,
         monthlyTrends,
+        laps: formattedLaps,
         settings: settingsRes.rows[0] || {},
         products: productsWithAnalytics,
         orders: orders,
@@ -2080,6 +2137,181 @@ export function setupAdrienStoreRoutes(app: Express) {
       await db.execute(sql`DELETE FROM adrien_vouchers WHERE id = ${Number(id)}`);
       res.json({ success: true, message: "Voucher berhasil dihapus." });
     } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // =========================================================================
+  // ⏱️ API EVALUASI BENCHMARK LAP (SINKRONISASI REAL-TIME MULTI-DEVICE)
+  // =========================================================================
+
+  // Ambil Semua Lap
+  app.get("/api/adrienfandra/admin/laps", verifyAdrienAdminMiddleware, async (_req: Request, res: Response) => {
+    try {
+      await ensureAdrienStoreTables();
+      const lapsRes = await db.execute(sql`SELECT * FROM adrien_store_laps ORDER BY lap_number ASC, id ASC`);
+      const formattedLaps = (lapsRes.rows || []).map((r: any) => ({
+        id: Number(r.id),
+        lapNumber: Number(r.lap_number),
+        title: r.title,
+        notes: r.notes || "",
+        date: r.created_at,
+        baseline: {
+          pageViews: Number(r.baseline_page_views || 0),
+          uniqueVisitors: Number(r.baseline_unique_visitors || 0),
+          paidOrders: Number(r.baseline_paid_orders || 0),
+          revenue: Number(r.baseline_revenue || 0)
+        }
+      }));
+      res.json({ success: true, laps: formattedLaps });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Tambah Lap Baru
+  app.post("/api/adrienfandra/admin/laps", verifyAdrienAdminMiddleware, async (req: Request, res: Response) => {
+    try {
+      await ensureAdrienStoreTables();
+      const { title, notes, baseline } = req.body;
+      const countRes = await db.execute(sql`SELECT COUNT(*) as count FROM adrien_store_laps`);
+      const nextNumber = Number(countRes.rows[0]?.count || 0) + 1;
+      const cleanTitle = (title || "").trim() || `Lap ${nextNumber}`;
+      const cleanNotes = (notes || "").trim() || "Tidak ada catatan.";
+      const pageViews = Number(baseline?.pageViews || 0);
+      const uniqueVisitors = Number(baseline?.uniqueVisitors || 0);
+      const paidOrders = Number(baseline?.paidOrders || 0);
+      const revenue = Number(baseline?.revenue || 0);
+
+      const insertRes = await db.execute(sql`
+        INSERT INTO adrien_store_laps (
+          lap_number, title, notes, baseline_page_views, baseline_unique_visitors, baseline_paid_orders, baseline_revenue, created_at
+        ) VALUES (
+          ${nextNumber}, ${cleanTitle}, ${cleanNotes}, ${pageViews}, ${uniqueVisitors}, ${paidOrders}, ${revenue}, NOW()
+        ) RETURNING *
+      `);
+
+      const row: any = insertRes.rows[0];
+      res.json({
+        success: true,
+        lap: {
+          id: Number(row.id),
+          lapNumber: Number(row.lap_number),
+          title: row.title,
+          notes: row.notes || "",
+          date: row.created_at,
+          baseline: {
+            pageViews: Number(row.baseline_page_views || 0),
+            uniqueVisitors: Number(row.baseline_unique_visitors || 0),
+            paidOrders: Number(row.baseline_paid_orders || 0),
+            revenue: Number(row.baseline_revenue || 0)
+          }
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Perbarui Catatan / Judul Lap
+  app.put("/api/adrienfandra/admin/laps/:id", verifyAdrienAdminMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { title, notes } = req.body;
+      if (notes !== undefined && title !== undefined) {
+        await db.execute(sql`UPDATE adrien_store_laps SET title = ${title}, notes = ${notes} WHERE id = ${Number(id)}`);
+      } else if (notes !== undefined) {
+        await db.execute(sql`UPDATE adrien_store_laps SET notes = ${notes} WHERE id = ${Number(id)}`);
+      } else if (title !== undefined) {
+        await db.execute(sql`UPDATE adrien_store_laps SET title = ${title} WHERE id = ${Number(id)}`);
+      }
+      res.json({ success: true, message: "Catatan lap berhasil diperbarui." });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Hapus Lap
+  app.delete("/api/adrienfandra/admin/laps/:id", verifyAdrienAdminMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      await db.execute(sql`DELETE FROM adrien_store_laps WHERE id = ${Number(id)}`);
+      res.json({ success: true, message: "Lap berhasil dihapus." });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Reset Seluruh Lap ke Lap 1
+  app.post("/api/adrienfandra/admin/laps/reset", verifyAdrienAdminMiddleware, async (_req: Request, res: Response) => {
+    try {
+      await db.execute(sql`TRUNCATE TABLE adrien_store_laps RESTART IDENTITY`);
+      await db.execute(sql`
+        INSERT INTO adrien_store_laps (
+          lap_number, title, notes, baseline_page_views, baseline_unique_visitors, baseline_paid_orders, baseline_revenue
+        ) VALUES (
+          1, 'Lap 1 (Awal Publikasi)', 'Baseline awal peluncuran katalog e-book.', 0, 0, 0, 0
+        )
+      `);
+      res.json({ success: true, message: "Seluruh lap berhasil direset ke Lap 1." });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Sinkronisasi Batch Lap dari LocalStorage ke Server Database
+  app.post("/api/adrienfandra/admin/laps/sync", verifyAdrienAdminMiddleware, async (req: Request, res: Response) => {
+    try {
+      await ensureAdrienStoreTables();
+      const { laps: clientLaps } = req.body;
+      if (!Array.isArray(clientLaps) || clientLaps.length === 0) {
+        return res.json({ success: true, message: "Tidak ada data lap yang dikirim." });
+      }
+
+      const existingRes = await db.execute(sql`SELECT * FROM adrien_store_laps ORDER BY lap_number ASC`);
+      const existingRows = existingRes.rows || [];
+      const existingLapNumbers = new Set(existingRows.map((r: any) => Number(r.lap_number)));
+
+      for (const lap of clientLaps) {
+        const num = Number(lap.lapNumber);
+        if (!num || existingLapNumbers.has(num)) continue;
+
+        const cleanTitle = (lap.title || "").trim() || `Lap ${num}`;
+        const cleanNotes = (lap.notes || "").trim() || "Tidak ada catatan.";
+        const pageViews = Number(lap.baseline?.pageViews || 0);
+        const uniqueVisitors = Number(lap.baseline?.uniqueVisitors || 0);
+        const paidOrders = Number(lap.baseline?.paidOrders || 0);
+        const revenue = Number(lap.baseline?.revenue || 0);
+        const createdAt = lap.date ? new Date(lap.date) : new Date();
+
+        await db.execute(sql`
+          INSERT INTO adrien_store_laps (
+            lap_number, title, notes, baseline_page_views, baseline_unique_visitors, baseline_paid_orders, baseline_revenue, created_at
+          ) VALUES (
+            ${num}, ${cleanTitle}, ${cleanNotes}, ${pageViews}, ${uniqueVisitors}, ${paidOrders}, ${revenue}, ${createdAt.toISOString()}
+          )
+        `);
+        existingLapNumbers.add(num);
+      }
+
+      const updatedRes = await db.execute(sql`SELECT * FROM adrien_store_laps ORDER BY lap_number ASC, id ASC`);
+      const formattedLaps = updatedRes.rows.map((r: any) => ({
+        id: Number(r.id),
+        lapNumber: Number(r.lap_number),
+        title: r.title,
+        notes: r.notes || "",
+        date: r.created_at,
+        baseline: {
+          pageViews: Number(r.baseline_page_views || 0),
+          uniqueVisitors: Number(r.baseline_unique_visitors || 0),
+          paidOrders: Number(r.baseline_paid_orders || 0),
+          revenue: Number(r.baseline_revenue || 0)
+        }
+      }));
+
+      res.json({ success: true, laps: formattedLaps });
+    } catch (error: any) {
+      console.error("[AdrienStore] Sync laps error:", error);
       res.status(500).json({ success: false, error: error.message });
     }
   });
