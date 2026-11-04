@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRoute, useLocation, Link } from "wouter";
 import { 
   ArrowLeft, MessageCircle, Zap, CheckCircle2, Star, 
-  ShieldCheck, Clock, Users, BookOpen, ChevronRight,
+  ShieldCheck, Clock, Users, BookOpen, ChevronLeft, ChevronRight,
   Flame, Award, Share2, Check, AlertCircle, ArrowRight
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import StoreFAQ from "@/components/StoreFAQ";
 
 interface Testimonial {
   name: string;
@@ -43,7 +44,11 @@ const DEFAULT_PRODUCTS: Product[] = [
     subtitle: "",
     category: "SUPER HEMAT",
     cover_url: "/Akuntansi/Paket_Bundling_3_E-Book.webp",
-    promo_images: [],
+    promo_images: [
+      "/Akuntansi/Bundling.png",
+      "/Akuntansi/Bundling (2).png",
+      "/Akuntansi/Bundling (3).png"
+    ],
     regular_price: 205000,
     sale_price: 82000,
     sales_headline: "Kuasai Akuntansi Lengkap Sekaligus Lebih Hemat!",
@@ -67,7 +72,10 @@ const DEFAULT_PRODUCTS: Product[] = [
     subtitle: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya dengan bahasa paling sederhana",
     category: "BEST SELLER",
     cover_url: "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp",
-    promo_images: [],
+    promo_images: [
+      "/Akuntansi/Logika Akuntansi.png",
+      "/Akuntansi/Logika Akuntansi (2).png"
+    ],
     regular_price: 72000,
     sale_price: 46000,
     sales_headline: "Pahami Akuntansi dari Logikanya, Bukan dari Hafalan Rumusnya!",
@@ -91,7 +99,10 @@ const DEFAULT_PRODUCTS: Product[] = [
     subtitle: "Panduan Lengkap Penyusunan Laporan Keuangan dari Nol",
     category: "PRAKTIS & LENGKAP",
     cover_url: "/Akuntansi/Mockup_Buku_Full_Accounting_Tebal.webp",
-    promo_images: [],
+    promo_images: [
+      "/Akuntansi/Full Accounting.png",
+      "/Akuntansi/Full Accounting (2).png"
+    ],
     regular_price: 95000,
     sale_price: 75000,
     sales_headline: "Satu Buku untuk Semua Kebutuhan Pembukuan & Laporan Bisnis!",
@@ -114,7 +125,10 @@ const DEFAULT_PRODUCTS: Product[] = [
     subtitle: "Ratusan Latihan Soal & Pembahasan Kasus Akuntansi Riil",
     category: "BANK SOAL",
     cover_url: "/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp",
-    promo_images: [],
+    promo_images: [
+      "/Akuntansi/Gudang Soal.png",
+      "/Akuntansi/Gudang Soal (2).png"
+    ],
     regular_price: 38000,
     sale_price: 26000,
     sales_headline: "Asah Jam Terbang Akuntansi Anda dengan Ratusan Latihan Kasus Riil!",
@@ -159,6 +173,34 @@ export default function ProductDetail() {
   const [activeSlide, setActiveSlide] = useState(0);
   const [copied, setCopied] = useState(false);
   const [activePayment, setActivePayment] = useState<any>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setActiveSlide(0);
+    if (scrollRef.current) {
+      scrollRef.current.scrollLeft = 0;
+    }
+  }, [productIdOrSlug]);
+
+  const handleScroll = () => {
+    if (!scrollRef.current) return;
+    const { scrollLeft, clientWidth } = scrollRef.current;
+    if (clientWidth === 0) return;
+    const newIndex = Math.round(scrollLeft / clientWidth);
+    if (newIndex !== activeSlide && newIndex >= 0 && newIndex < slides.length) {
+      setActiveSlide(newIndex);
+    }
+  };
+
+  const scrollToSlide = (index: number) => {
+    if (!scrollRef.current) return;
+    const width = scrollRef.current.clientWidth;
+    scrollRef.current.scrollTo({
+      left: index * width,
+      behavior: "smooth"
+    });
+    setActiveSlide(index);
+  };
 
   const getVisitorId = () => {
     let id = localStorage.getItem("af_store_visitor_id");
@@ -248,7 +290,7 @@ export default function ProductDetail() {
 
   const isBundling = Number(product.id) === 2 || product.slug === "paket-bundling-3-buku";
 
-  const resolveWebpUrl = (url: string) => {
+  const resolveCoverUrl = (url: string) => {
     if (!url) return "";
     if (url.includes("Bundling") || url.includes("bundling") || url.includes("Interaktif")) {
       return "/Akuntansi/Paket_Bundling_3_E-Book.webp";
@@ -262,16 +304,28 @@ export default function ProductDetail() {
     if (url.includes("Gudang") || url.includes("gudang") || url.includes("Soal") || url.includes("soal")) {
       return "/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp";
     }
-    if (url.endsWith(".png") && url.includes("/Akuntansi/")) {
-      return url.replace(/\.png$/, ".webp").replace(/\s+/g, "_");
-    }
     return url;
   };
 
-  // Daftar slide visual (cover + promo images tambahan)
+  const DEFAULT_PROMO_MAP: Record<string, string[]> = {
+    "paket-bundling-3-buku": ["/Akuntansi/Bundling.png", "/Akuntansi/Bundling (2).png", "/Akuntansi/Bundling (3).png"],
+    "2": ["/Akuntansi/Bundling.png", "/Akuntansi/Bundling (2).png", "/Akuntansi/Bundling (3).png"],
+    "logika-akuntansi": ["/Akuntansi/Logika Akuntansi.png", "/Akuntansi/Logika Akuntansi (2).png"],
+    "1": ["/Akuntansi/Logika Akuntansi.png", "/Akuntansi/Logika Akuntansi (2).png"],
+    "full-accounting": ["/Akuntansi/Full Accounting.png", "/Akuntansi/Full Accounting (2).png"],
+    "3": ["/Akuntansi/Full Accounting.png", "/Akuntansi/Full Accounting (2).png"],
+    "gudang-akuntansi": ["/Akuntansi/Gudang Soal.png", "/Akuntansi/Gudang Soal (2).png"],
+    "4": ["/Akuntansi/Gudang Soal.png", "/Akuntansi/Gudang Soal (2).png"],
+  };
+
+  const rawPromoImages = (product.promo_images && product.promo_images.length > 0)
+    ? product.promo_images
+    : (DEFAULT_PROMO_MAP[product.slug] || DEFAULT_PROMO_MAP[String(product.id)] || []);
+
+  // Filter dan susun daftar slide (cover di urutan pertama, disusul gambar preview isi buku yang bisa diswipe)
   const slides = [
-    resolveWebpUrl(product.cover_url || "/placeholder-cover"),
-    ...(product.promo_images || [])
+    resolveCoverUrl(product.cover_url || "/placeholder-cover"),
+    ...rawPromoImages
   ].filter(Boolean);
 
   const handleShare = () => {
@@ -356,84 +410,115 @@ export default function ProductDetail() {
         </div>
 
         {/* =========================================================================
-            2. IMAGE GALLERY / SLIDER (DENGAN INDIKATOR TITIK 4 TITIK SEPERTI REFERENSI)
+            2. IMAGE GALLERY / SWIPEABLE CAROUSEL (BISA DISWIPE KE KANAN & KIRI)
             ========================================================================= */}
         <div className="space-y-3">
-          <div className="relative rounded-3xl overflow-hidden bg-white border border-slate-200/90 p-4 sm:p-6 flex items-center justify-center min-h-[300px] sm:min-h-[380px] shadow-sm">
+          <div className="relative rounded-3xl overflow-hidden bg-white border border-slate-200/90 shadow-sm group">
             
-            {/* Slide Visual */}
-            {slides.length > 0 && slides[activeSlide] !== "/placeholder-cover" ? (
-              <img
-                src={slides[activeSlide]}
-                alt={`${product.title} slide ${activeSlide + 1}`}
-                loading="eager"
-                decoding="async"
-                className="max-h-72 sm:max-h-[360px] md:max-h-[400px] w-auto max-w-full object-contain mix-blend-multiply transition-all duration-300 hover:scale-102"
-              />
-            ) : (
-              /* High-Converting Book Cover Visual */
-              <div className="w-full flex flex-col items-center justify-center text-center py-4 space-y-4">
-                <div className="w-56 sm:w-64 md:w-72 h-80 sm:h-96 md:h-[420px] bg-gradient-to-br from-[#1D3E72] via-[#2563EB] to-[#0F2247] rounded-3xl shadow-2xl p-7 text-white flex flex-col justify-between relative overflow-hidden border-2 border-white/20">
-                  <div className="absolute top-0 right-0 w-36 h-36 bg-white/10 rounded-full blur-2xl"></div>
-                  <div className="absolute left-0 top-0 bottom-0 w-4 bg-black/20 border-r border-white/10"></div>
-                  
-                  <div className="relative z-10 pl-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-[#F6B93B] block">BILANO E-BOOK</span>
-                    <span className="text-xs font-bold text-blue-200 uppercase">{product.category || "EDISI RESMI"}</span>
-                  </div>
-
-                  <div className="relative z-10 pl-2 my-auto">
-                    <h4 className="font-black text-xl sm:text-2xl leading-snug line-clamp-3 text-white">
-                      {product.title}
-                    </h4>
-                    {product.subtitle && (
-                      <p className="text-xs text-blue-100 line-clamp-2 mt-2 opacity-90">
-                        {product.subtitle}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="relative z-10 pl-2 text-xs text-blue-200 flex items-center justify-between border-t border-white/10 pt-3">
-                    <span className="font-semibold">Adrien Fandra</span>
-                    <span className="font-extrabold text-[#F6B93B]">PDF HD</span>
-                  </div>
-                </div>
+            {/* Chip panduan swipe jika gambar lebih dari 1 */}
+            {slides.length > 1 && (
+              <div className="absolute top-3 right-3 z-20 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-md pointer-events-none border border-white/20 select-none">
+                <span>Geser preview</span>
+                <ChevronRight className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
               </div>
             )}
+
+            {/* Container Swipeable Horizontal Track */}
+            <div
+              ref={scrollRef}
+              onScroll={handleScroll}
+              className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none scroll-smooth items-center min-h-[320px] sm:min-h-[390px] w-full"
+              style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}
+            >
+              {slides.map((src, idx) => (
+                <div
+                  key={idx}
+                  className="min-w-full w-full snap-center flex-shrink-0 flex items-center justify-center p-4 sm:p-6 select-none bg-white"
+                >
+                  <img
+                    src={src}
+                    alt={`${product.title} - Preview ${idx + 1}`}
+                    loading={idx === 0 ? "eager" : "lazy"}
+                    decoding="async"
+                    className="max-h-72 sm:max-h-[360px] md:max-h-[400px] w-auto max-w-full object-contain mix-blend-multiply transition-transform duration-300 pointer-events-none"
+                    draggable={false}
+                  />
+                </div>
+              ))}
+            </div>
 
             {/* Tombol Panah Navigasi Slide jika lebih dari 1 */}
             {slides.length > 1 && (
               <>
                 <button
-                  onClick={() => setActiveSlide((prev) => (prev > 0 ? prev - 1 : slides.length - 1))}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm text-slate-700 flex items-center justify-center shadow-md text-xs font-bold"
+                  type="button"
+                  onClick={() => scrollToSlide(activeSlide > 0 ? activeSlide - 1 : slides.length - 1)}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-slate-800 flex items-center justify-center shadow-lg border border-slate-200 transition-all hover:scale-105 active:scale-95 z-20 cursor-pointer"
+                  aria-label="Slide sebelumnya"
                 >
-                  ‹
+                  <ChevronLeft className="w-5 h-5" />
                 </button>
                 <button
-                  onClick={() => setActiveSlide((prev) => (prev < slides.length - 1 ? prev + 1 : 0))}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm text-slate-700 flex items-center justify-center shadow-md text-xs font-bold"
+                  type="button"
+                  onClick={() => scrollToSlide(activeSlide < slides.length - 1 ? activeSlide + 1 : 0)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-slate-800 flex items-center justify-center shadow-lg border border-slate-200 transition-all hover:scale-105 active:scale-95 z-20 cursor-pointer"
+                  aria-label="Slide berikutnya"
                 >
-                  ›
+                  <ChevronRight className="w-5 h-5" />
                 </button>
               </>
             )}
           </div>
 
-          {/* Dots Indicator Pagination */}
-          <div className="flex items-center justify-center gap-1.5 py-1">
-            {(slides.length > 0 ? slides : [1, 2, 3, 4]).map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => setActiveSlide(idx)}
-                className={`transition-all duration-300 rounded-full ${
-                  activeSlide === idx 
-                    ? "w-5 h-2 bg-[#1D3E72]" 
-                    : "w-2 h-2 bg-slate-300 hover:bg-slate-400"
-                }`}
-              />
-            ))}
+          {/* Indikator Baris Titik & Jumlah Halaman */}
+          <div className="flex items-center justify-between px-2 py-0.5">
+            <div className="flex items-center gap-1.5">
+              {slides.map((_, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => scrollToSlide(idx)}
+                  className={`transition-all duration-300 rounded-full cursor-pointer ${
+                    activeSlide === idx 
+                      ? "w-6 h-2 bg-[#1D3E72]" 
+                      : "w-2 h-2 bg-slate-300 hover:bg-slate-400"
+                  }`}
+                  aria-label={`Ke halaman preview ${idx + 1}`}
+                />
+              ))}
+            </div>
+
+            {slides.length > 1 && (
+              <span className="text-[11px] font-bold text-slate-400">
+                {activeSlide + 1} / {slides.length} Preview
+              </span>
+            )}
           </div>
+
+          {/* Thumbnail Strip untuk Akses Cepat Preview */}
+          {slides.length > 1 && (
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 scrollbar-none">
+              {slides.map((src, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => scrollToSlide(idx)}
+                  className={`relative w-14 h-16 sm:w-16 sm:h-20 rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all bg-white p-1 cursor-pointer ${
+                    activeSlide === idx
+                      ? "border-[#1D3E72] ring-2 ring-blue-500/30 scale-102 shadow-sm"
+                      : "border-slate-200 opacity-60 hover:opacity-100"
+                  }`}
+                  aria-label={`Pilih preview ${idx + 1}`}
+                >
+                  <img
+                    src={src}
+                    alt={`Preview mini ${idx + 1}`}
+                    className="w-full h-full object-contain"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* =========================================================================
@@ -562,6 +647,14 @@ export default function ProductDetail() {
             File PDF dikirim otomatis ke email & bisa langsung diunduh setelah pembayaran.
           </p>
         </div>
+
+        {/* =========================================================================
+            6. FAQ (ACCORDION PERTANYAAN UMUM DI BAWAH HARGA)
+            ========================================================================= */}
+        <StoreFAQ
+          title="Pertanyaan Seputar E-Book Ini"
+          subtitle="Pelajari transparansi nilai investasi dan format digital e-book"
+        />
 
       </main>
 

@@ -343,6 +343,27 @@ async function seedDefaultAdrienStoreData() {
       `);
     }
 
+    // Pastikan promo_images pada setiap buku tersinkron dengan gambar preview terbaru
+    try {
+      await db.execute(sql`
+        UPDATE adrien_products 
+        SET promo_images = '["/Akuntansi/Bundling.png", "/Akuntansi/Bundling (2).png", "/Akuntansi/Bundling (3).png"]'::jsonb
+        WHERE (id = 2 OR slug = 'paket-bundling-3-buku') AND (promo_images IS NULL OR jsonb_array_length(promo_images) = 0);
+
+        UPDATE adrien_products 
+        SET promo_images = '["/Akuntansi/Logika Akuntansi.png", "/Akuntansi/Logika Akuntansi (2).png"]'::jsonb
+        WHERE (id = 1 OR slug = 'logika-akuntansi') AND (promo_images IS NULL OR jsonb_array_length(promo_images) = 0);
+
+        UPDATE adrien_products 
+        SET promo_images = '["/Akuntansi/Full Accounting.png", "/Akuntansi/Full Accounting (2).png"]'::jsonb
+        WHERE (id = 3 OR slug = 'full-accounting') AND (promo_images IS NULL OR jsonb_array_length(promo_images) = 0);
+
+        UPDATE adrien_products 
+        SET promo_images = '["/Akuntansi/Gudang Soal.png", "/Akuntansi/Gudang Soal (2).png"]'::jsonb
+        WHERE (id = 4 OR slug = 'gudang-akuntansi') AND (promo_images IS NULL OR jsonb_array_length(promo_images) = 0);
+      `);
+    } catch (e) {}
+
     // 3. Cek & Migrasi Voucher (Tambahkan Promo AF14 40% Bundling & Kolom Restriksi Produk)
     await db.execute(sql`
       ALTER TABLE adrien_vouchers ADD COLUMN IF NOT EXISTS applicable_product_id INTEGER;
@@ -975,11 +996,30 @@ export function setupAdrienStoreRoutes(app: Express) {
       // Hapus password dari respons publik
       delete settingsData.admin_password;
 
-      const formattedProducts = (productsRes.rows || []).map((p: any) => ({
-        ...p,
-        regular_price: Number(p.regular_price) || 0,
-        sale_price: Number(p.sale_price) || 0
-      }));
+      const formatProductWithPromo = (p: any) => {
+        let promo = p.promo_images;
+        if (!promo || !Array.isArray(promo) || promo.length === 0) {
+          if (p.id === 2 || p.slug === "paket-bundling-3-buku") {
+            promo = ["/Akuntansi/Bundling.png", "/Akuntansi/Bundling (2).png", "/Akuntansi/Bundling (3).png"];
+          } else if (p.id === 1 || p.slug === "logika-akuntansi") {
+            promo = ["/Akuntansi/Logika Akuntansi.png", "/Akuntansi/Logika Akuntansi (2).png"];
+          } else if (p.id === 3 || p.slug === "full-accounting") {
+            promo = ["/Akuntansi/Full Accounting.png", "/Akuntansi/Full Accounting (2).png"];
+          } else if (p.id === 4 || p.slug === "gudang-akuntansi") {
+            promo = ["/Akuntansi/Gudang Soal.png", "/Akuntansi/Gudang Soal (2).png"];
+          } else {
+            promo = [];
+          }
+        }
+        return {
+          ...p,
+          promo_images: promo,
+          regular_price: Number(p.regular_price) || 0,
+          sale_price: Number(p.sale_price) || 0
+        };
+      };
+
+      const formattedProducts = (productsRes.rows || []).map((p: any) => formatProductWithPromo(p));
 
       storeDataCache = {
         success: true,
@@ -1016,11 +1056,31 @@ export function setupAdrienStoreRoutes(app: Express) {
         return res.status(404).json({ success: false, error: "Produk tidak ditemukan." });
       }
 
-      const row: any = { ...result.rows[0] };
-      delete row.pdf_data_base64;
-      row.has_pdf = Boolean(result.rows[0].pdf_filename || result.rows[0].pdf_data_base64);
-      row.regular_price = Number(row.regular_price) || 0;
-      row.sale_price = Number(row.sale_price) || 0;
+      const rawRow: any = { ...result.rows[0] };
+      delete rawRow.pdf_data_base64;
+
+      let promo = rawRow.promo_images;
+      if (!promo || !Array.isArray(promo) || promo.length === 0) {
+        if (rawRow.id === 2 || rawRow.slug === "paket-bundling-3-buku") {
+          promo = ["/Akuntansi/Bundling.png", "/Akuntansi/Bundling (2).png", "/Akuntansi/Bundling (3).png"];
+        } else if (rawRow.id === 1 || rawRow.slug === "logika-akuntansi") {
+          promo = ["/Akuntansi/Logika Akuntansi.png", "/Akuntansi/Logika Akuntansi (2).png"];
+        } else if (rawRow.id === 3 || rawRow.slug === "full-accounting") {
+          promo = ["/Akuntansi/Full Accounting.png", "/Akuntansi/Full Accounting (2).png"];
+        } else if (rawRow.id === 4 || rawRow.slug === "gudang-akuntansi") {
+          promo = ["/Akuntansi/Gudang Soal.png", "/Akuntansi/Gudang Soal (2).png"];
+        } else {
+          promo = [];
+        }
+      }
+
+      const row: any = {
+        ...rawRow,
+        promo_images: promo,
+        has_pdf: Boolean(result.rows[0].pdf_filename || result.rows[0].pdf_data_base64),
+        regular_price: Number(rawRow.regular_price) || 0,
+        sale_price: Number(rawRow.sale_price) || 0
+      };
 
       res.json({ success: true, product: row });
     } catch (error: any) {

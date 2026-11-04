@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { formatCurrency } from "@/lib/utils";
 import { Clock, ArrowRight, ArrowDown, CheckCircle2, MessageCircle, Star, BookOpen, ShieldCheck, ChevronLeft, ChevronRight, X } from "lucide-react";
+import StoreFAQ from "@/components/StoreFAQ";
 
 const REVIEW_ITEMS = [
   { id: 1, src: "/Akuntansi/Review_1.webp", fallback: "/Akuntansi/Review 1.jpg", alt: "Review Pembeli 1" },
@@ -40,7 +41,11 @@ const DEFAULT_PRODUCTS: Product[] = [
     subtitle: "",
     category: "SUPER HEMAT",
     cover_url: "/Akuntansi/Paket_Bundling_3_E-Book.webp",
-    promo_images: [],
+    promo_images: [
+      "/Akuntansi/Bundling.png",
+      "/Akuntansi/Bundling (2).png",
+      "/Akuntansi/Bundling (3).png"
+    ],
     regular_price: 205000,
     sale_price: 82000,
     sales_headline: "Kuasai Akuntansi Lengkap Sekaligus Lebih Hemat!",
@@ -63,7 +68,10 @@ const DEFAULT_PRODUCTS: Product[] = [
     subtitle: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya dengan bahasa paling sederhana",
     category: "BEST SELLER",
     cover_url: "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp",
-    promo_images: [],
+    promo_images: [
+      "/Akuntansi/Logika Akuntansi.png",
+      "/Akuntansi/Logika Akuntansi (2).png"
+    ],
     regular_price: 72000,
     sale_price: 46000,
     sales_headline: "Pahami Akuntansi dari Logikanya, Bukan dari Hafalan Rumusnya!",
@@ -86,7 +94,10 @@ const DEFAULT_PRODUCTS: Product[] = [
     subtitle: "Panduan Lengkap Penyusunan Laporan Keuangan dari Nol",
     category: "PRAKTIS & LENGKAP",
     cover_url: "/Akuntansi/Mockup_Buku_Full_Accounting_Tebal.webp",
-    promo_images: [],
+    promo_images: [
+      "/Akuntansi/Full Accounting.png",
+      "/Akuntansi/Full Accounting (2).png"
+    ],
     regular_price: 95000,
     sale_price: 75000,
     sales_headline: "Satu Buku untuk Semua Kebutuhan Pembukuan & Laporan Bisnis!",
@@ -108,7 +119,10 @@ const DEFAULT_PRODUCTS: Product[] = [
     subtitle: "Ratusan Latihan Soal & Pembahasan Kasus Akuntansi Riil",
     category: "BANK SOAL",
     cover_url: "/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp",
-    promo_images: [],
+    promo_images: [
+      "/Akuntansi/Gudang Soal.png",
+      "/Akuntansi/Gudang Soal (2).png"
+    ],
     regular_price: 38000,
     sale_price: 26000,
     sales_headline: "Asah Jam Terbang Akuntansi Anda dengan Ratusan Latihan Kasus Riil!",
@@ -766,6 +780,13 @@ export default function StoreFront() {
             )}
           </div>
         </section>
+
+        {/* 💬 FAQ ACCORDION PALING BAWAH (SESUAI REQUEST USER) */}
+        <StoreFAQ
+          className="pt-6"
+          title="Pertanyaan Yang Sering Diajukan"
+          subtitle="Jawaban jujur & transparan seputar investasi ilmu di e-book ini"
+        />
 
       </main>
 
