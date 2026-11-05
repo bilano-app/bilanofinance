@@ -427,20 +427,20 @@ export default function ProductDetail() {
             <div
               ref={scrollRef}
               onScroll={handleScroll}
-              className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none scroll-smooth items-center min-h-[320px] sm:min-h-[390px] w-full"
+              className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none scroll-smooth items-center min-h-[360px] sm:min-h-[440px] md:min-h-[480px] w-full"
               style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}
             >
               {slides.map((src, idx) => (
                 <div
                   key={idx}
-                  className="min-w-full w-full snap-center flex-shrink-0 flex items-center justify-center p-4 sm:p-6 select-none bg-white"
+                  className="min-w-full w-full snap-center flex-shrink-0 flex items-center justify-center p-2 sm:p-4 select-none bg-white"
                 >
                   <img
                     src={src}
                     alt={`${product.title} - Preview ${idx + 1}`}
                     loading={idx === 0 ? "eager" : "lazy"}
                     decoding="async"
-                    className="max-h-72 sm:max-h-[360px] md:max-h-[400px] w-auto max-w-full object-contain mix-blend-multiply transition-transform duration-300 pointer-events-none"
+                    className="max-h-[360px] sm:max-h-[440px] md:max-h-[480px] w-auto max-w-full object-contain mix-blend-multiply transition-transform duration-300 pointer-events-none"
                     draggable={false}
                   />
                 </div>

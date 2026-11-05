@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, HelpCircle, Sparkles } from "lucide-react";
+import { ChevronDown, HelpCircle } from "lucide-react";
 
 export interface FAQItem {
   id: string;
@@ -121,12 +121,6 @@ export default function StoreFAQ({
               </div>
             );
           })}
-        </div>
-
-        {/* Footnote Trust Badge */}
-        <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-center gap-2 text-center text-[11px] text-slate-500">
-          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-          <span>Garansi materi praktis & relevan langsung dari praktisi</span>
         </div>
 
       </div>

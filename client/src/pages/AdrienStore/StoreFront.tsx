@@ -464,24 +464,18 @@ export default function StoreFront() {
         {/* =========================================================================
             2. 3 GAMBAR DISPLAY (MENYATU DALAM SATU ALUR CERITA TANPA GARIS KOTAK KAKU)
             ========================================================================= */}
-        <section className="w-full bg-white rounded-3xl p-4 sm:p-7 md:p-8 shadow-sm space-y-4 sm:space-y-6 overflow-hidden">
+        <section className="w-full bg-white rounded-2xl sm:rounded-3xl p-1 sm:p-2 md:p-3 shadow-sm space-y-2 sm:space-y-4 overflow-hidden">
           {slotImages.map((rawUrl: string, slotIndex: number) => {
             const imgUrl = resolveWebpUrl(rawUrl) || DEFAULT_SLOT_IMAGES[slotIndex];
             return (
               <div
                 key={slotIndex}
-                className={`w-full flex items-center justify-center ${
-                  slotIndex === 0
-                    ? "-mx-1.5 sm:-mx-3 md:-mx-4 w-[calc(100%+0.75rem)] sm:w-[calc(100%+1.5rem)] md:w-[calc(100%+2rem)] scale-[1.04] sm:scale-[1.07] transform-gpu origin-center py-1 sm:py-1.5"
-                    : ""
-                }`}
+                className="w-full flex items-center justify-center overflow-hidden rounded-xl sm:rounded-2xl"
               >
                 <img
                   src={imgUrl}
                   alt={`Display ${slotIndex + 1}`}
-                  className={`w-full h-auto block object-contain mix-blend-multiply ${
-                    slotIndex === 1 ? "rounded-2xl sm:rounded-3xl" : ""
-                  }`}
+                  className="w-full h-auto block object-contain mix-blend-multiply"
                   loading="eager"
                   decoding="async"
                 />
