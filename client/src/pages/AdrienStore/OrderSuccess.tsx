@@ -39,7 +39,7 @@ interface OrderDetail {
 const DEFAULT_BUNDLE_ITEMS: BundleItem[] = [
   {
     id: 1,
-    key: "bayi",
+    key: "logika",
     title: "Logika Akuntansi",
     subtitle: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya dengan bahasa paling sederhana",
     filename: "LOGIKA AKUNTANSI - Adrien Fandra.pdf",
@@ -49,7 +49,7 @@ const DEFAULT_BUNDLE_ITEMS: BundleItem[] = [
   },
   {
     id: 2,
-    key: "tuntas",
+    key: "lengkap",
     title: "Akuntansi Lengkap",
     subtitle: "Panduan Komprehensif Siklus Akuntansi Penuh & Laporan Keuangan",
     filename: "FULL ACCOUNTING - Adrien Fandra.pdf",
@@ -75,10 +75,6 @@ export default function OrderSuccess() {
 
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [downloadingSingle, setDownloadingSingle] = useState(false);
-  const [downloadingBookKey, setDownloadingBookKey] = useState<string | null>(null);
-  const [downloadingAll, setDownloadingAll] = useState(false);
-  const [downloadAllProgress, setDownloadAllProgress] = useState<string>("");
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -99,99 +95,6 @@ export default function OrderSuccess() {
       .catch(err => console.error("Error fetching order:", err))
       .finally(() => setLoading(false));
   }, [orderId]);
-
-  // Mengunduh file langsung sebagai Blob memory agar langsung tersimpan di HP/Laptop tanpa masuk ke PWA
-  const downloadFileBlob = async (url: string, filename: string): Promise<boolean> => {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("Gagal mengambil file PDF dari server.");
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.style.display = "none";
-      link.href = blobUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      setTimeout(() => {
-        if (document.body.contains(link)) document.body.removeChild(link);
-        window.URL.revokeObjectURL(blobUrl);
-      }, 4000);
-      return true;
-    } catch (err) {
-      console.warn("Blob download fallback:", err);
-      const fallbackLink = document.createElement("a");
-      fallbackLink.style.display = "none";
-      fallbackLink.href = url;
-      fallbackLink.download = filename;
-      fallbackLink.target = "_blank";
-      document.body.appendChild(fallbackLink);
-      fallbackLink.click();
-      setTimeout(() => {
-        if (document.body.contains(fallbackLink)) document.body.removeChild(fallbackLink);
-      }, 1500);
-      return false;
-    }
-  };
-
-  // Download satu file untuk produk non-bundling
-  const handleDownloadSingle = async () => {
-    if (!orderId || downloadingSingle) return;
-    setDownloadingSingle(true);
-    const fname = order?.pdf_filename || "Ebook_Akuntansi.pdf";
-    await downloadFileBlob(`/api/adrienfandra/download/${orderId}`, fname);
-    setDownloadingSingle(false);
-  };
-
-  // Download salah satu buku spesifik dalam paket bundling
-  const handleDownloadBook = async (bookKey: string, filename: string) => {
-    if (!orderId || downloadingBookKey) return;
-    setDownloadingBookKey(bookKey);
-    await downloadFileBlob(`/api/adrienfandra/download/${orderId}?book=${bookKey}`, filename);
-    setDownloadingBookKey(null);
-  };
-
-  // Download ke-3 buku sekaligus secara berurutan (3 file PDF terpisah, tidak digabung)
-  const handleDownloadAllBundle = async (items: BundleItem[]) => {
-    if (!orderId || downloadingAll) return;
-    setDownloadingAll(true);
-
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      setDownloadAllProgress(`Mengunduh (${i + 1}/${items.length}) ${item.title}...`);
-      await downloadFileBlob(`/api/adrienfandra/download/${orderId}?book=${item.key}`, item.filename);
-
-      // Jeda agar browser mobile dapat menyelesaikan penulisan file ke folder download
-      if (i < items.length - 1) {
-        await new Promise(r => setTimeout(r, 1200));
-      }
-    }
-
-    setDownloadAllProgress("Semua 3 file e-book berhasil diunduh!");
-    setTimeout(() => {
-      setDownloadingAll(false);
-      setDownloadAllProgress("");
-    }, 2500);
-  };
-
-  // 🚀 AUTO-DOWNLOAD LANGSUNG SAAT HALAMAN SUKSES MEMUAT TRANSAKSI LUNAS
-  const hasAutoDownloaded = useRef(false);
-  useEffect(() => {
-    if (!order || hasAutoDownloaded.current) return;
-    if (order.payment_status === "PAID") {
-      hasAutoDownloaded.current = true;
-      const isBundling = Boolean(order.is_bundle || order.product_title?.toLowerCase().includes("bundling") || order.product_id === 2);
-      const timer = setTimeout(() => {
-        if (isBundling) {
-          const list = (order.bundle_items && order.bundle_items.length > 0) ? order.bundle_items : DEFAULT_BUNDLE_ITEMS;
-          handleDownloadAllBundle(list);
-        } else {
-          handleDownloadSingle();
-        }
-      }, 900);
-      return () => clearTimeout(timer);
-    }
-  }, [order?.id, order?.payment_status]);
 
   if (loading) {
     return (
@@ -258,25 +161,22 @@ export default function OrderSuccess() {
           {isBundle ? (
             <div className="space-y-4 pt-1 text-left">
               
-              {/* Tombol Unduh Semua Sekaligus */}
-              <button
-                type="button"
-                onClick={() => handleDownloadAllBundle(bundleList)}
-                disabled={downloadingAll}
-                className="w-full bg-gradient-to-r from-[#1D3E72] to-[#2563EB] hover:from-[#0F2247] hover:to-[#1D4ED8] text-white font-extrabold text-xs sm:text-sm py-3.5 px-4 rounded-2xl shadow-lg shadow-blue-900/20 transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer disabled:opacity-75"
+              {/* Tombol Unduh Semua Sekaligus (1 File PDF Gabungan) */}
+              <a
+                href={`/api/adrienfandra/download/${order.merchant_order_id}?book=bundle`}
+                download="Paket_Bundling_3_Buku_Akuntansi_Adrien_Fandra.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full bg-gradient-to-r from-[#1D3E72] to-[#2563EB] hover:from-[#0F2247] hover:to-[#1D4ED8] text-white font-extrabold text-xs sm:text-sm py-3.5 px-4 rounded-2xl shadow-lg shadow-blue-900/20 transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer no-underline text-center"
               >
-                <Download className={`w-4 h-4 ${downloadingAll ? "animate-bounce" : ""}`} />
-                <span>
-                  {downloadingAll 
-                    ? (downloadAllProgress || "Memproses Unduhan 3 Buku...") 
-                    : "UNDUH SEMUA 3 E-BOOK SEKALIGUS (3 FILE PDF)"}
-                </span>
-              </button>
+                <Download className="w-4 h-4" />
+                <span>UNDUH 3 BUKU SEKALIGUS (1 FILE PDF BUNDLING)</span>
+              </a>
 
               <div className="flex items-center gap-2 pt-2">
                 <span className="h-px bg-slate-200 flex-1"></span>
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                  ATAU UNDUH / BACA MASING-MASING
+                  ATAU UNDUH / BACA MASING-MASING BUKU (TERPISAH)
                 </span>
                 <span className="h-px bg-slate-200 flex-1"></span>
               </div>
@@ -316,15 +216,16 @@ export default function OrderSuccess() {
 
                     {/* Tombol Aksi Per Buku */}
                     <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto">
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadBook(item.key, item.filename)}
-                        disabled={downloadingBookKey === item.key}
-                        className="flex-1 sm:flex-initial bg-[#1D3E72] hover:bg-[#0F2247] text-white text-xs font-bold py-2.5 px-3.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                      <a
+                        href={`/api/adrienfandra/download/${order.merchant_order_id}?book=${item.key}`}
+                        download={item.filename}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 sm:flex-initial bg-[#1D3E72] hover:bg-[#0F2247] text-white text-xs font-bold py-2.5 px-3.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95 no-underline text-center"
                       >
-                        <Download className={`w-3.5 h-3.5 ${downloadingBookKey === item.key ? "animate-bounce" : ""}`} />
-                        <span>{downloadingBookKey === item.key ? "Mengunduh..." : "Download (PDF)"}</span>
-                      </button>
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download (PDF)</span>
+                      </a>
 
                       <Link
                         href={`/adrienfandra/read/${order.merchant_order_id}?book=${item.key}`}
@@ -357,14 +258,16 @@ export default function OrderSuccess() {
                 </div>
               )}
 
-              <button
-                onClick={handleDownloadSingle}
-                disabled={downloadingSingle}
-                className="w-full bg-[#1D3E72] hover:bg-[#0F2247] text-white font-black text-sm py-4 rounded-2xl shadow-xl shadow-blue-900/20 transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer"
+              <a
+                href={`/api/adrienfandra/download/${order.merchant_order_id}`}
+                download={order.pdf_filename || `${order.product_title || "Ebook"}.pdf`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full bg-[#1D3E72] hover:bg-[#0F2247] text-white font-black text-sm py-4 rounded-2xl shadow-xl shadow-blue-900/20 transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer no-underline text-center"
               >
-                <Download className={`w-5 h-5 ${downloadingSingle ? "animate-bounce" : ""}`} />
-                <span>{downloadingSingle ? "Mengunduh File PDF..." : "DOWNLOAD E-BOOK (PDF)"}</span>
-              </button>
+                <Download className="w-5 h-5" />
+                <span>DOWNLOAD E-BOOK (PDF)</span>
+              </a>
 
               <Link
                 href={`/adrienfandra/read/${order.merchant_order_id}`}
@@ -380,14 +283,11 @@ export default function OrderSuccess() {
           <div className="p-4 bg-blue-50/70 rounded-2xl border border-blue-200/60 text-left space-y-1.5">
             <div className="flex items-center gap-2 text-xs font-bold text-blue-900">
               <Mail className="w-4 h-4 text-blue-600 flex-shrink-0" />
-              <span>Salinan Otomatis Telah Dikirim ke Email</span>
+              <span>File E-Book Juga Dikirimkan Otomatis ke Email</span>
             </div>
             <p className="text-[11px] text-slate-600 leading-relaxed">
-              {isBundle ? (
-                <>Ke-3 file PDF e-book terpisah juga telah dikirimkan ke <strong className="text-slate-800">{order.customer_email}</strong>. Silakan cek Inbox atau folder Spam email Anda.</>
-              ) : (
-                <>File PDF e-book juga telah dikirimkan ke <strong className="text-slate-800">{order.customer_email}</strong>. Silakan cek Inbox atau folder Spam email Anda.</>
-              )}
+              Tautan unduhan dan file e-book telah dikirimkan ke <strong className="text-slate-800">{order.customer_email}</strong>. 
+              Jika tidak muncul di Kotak Masuk (Inbox), mohon periksa folder <strong>Spam</strong> atau <strong>Promosi</strong> email Anda.
             </p>
           </div>
 

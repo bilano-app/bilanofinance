@@ -606,7 +606,7 @@ function getAkuntansiDirectory(): string {
 export const BUNDLE_BOOKS = [
   {
     key: "logika",
-    aliases: ["bayi", "1"],
+    aliases: ["bayi", "1", "logika-akuntansi"],
     order: 1,
     title: "Logika Akuntansi",
     subtitle: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya dengan bahasa paling sederhana",
@@ -615,7 +615,7 @@ export const BUNDLE_BOOKS = [
   },
   {
     key: "lengkap",
-    aliases: ["tuntas", "full", "2"],
+    aliases: ["tuntas", "full", "2", "full-accounting"],
     order: 2,
     title: "Akuntansi Lengkap",
     subtitle: "Panduan Komprehensif Siklus Akuntansi Penuh & Laporan Keuangan",
@@ -624,7 +624,7 @@ export const BUNDLE_BOOKS = [
   },
   {
     key: "gudang",
-    aliases: ["soal", "3"],
+    aliases: ["soal", "3", "gudang-akuntansi"],
     order: 3,
     title: "Gudang Soal Akuntansi",
     subtitle: "Kumpulan Studi Kasus, Latihan Soal, & Pembahasan Praktis Siap Uji",
@@ -676,7 +676,8 @@ export async function getEbookPdfBuffer(
     const raw = product.pdf_data_base64.includes(",") ? product.pdf_data_base64.split(",")[1] : product.pdf_data_base64;
     return {
       buffer: Buffer.from(raw.trim(), "base64"),
-      filename: product.pdf_filename || `${(product.title || "Ebook").replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+      filename: product.pdf_filename || `${(product.title || "Ebook").replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
+      title: product.title
     };
   }
 
@@ -684,18 +685,43 @@ export async function getEbookPdfBuffer(
   const title = (product.title || "").toLowerCase();
   const slug = (product.slug || "").toLowerCase();
   const filename = product.pdf_filename || "";
+  const prodId = Number(product.id || 0);
 
-  // 2. Cek apakah ini Paket Bundling (Diberikan 3 buku terpisah masing-masing)
-  const isBundle = Number(product.id) === 2 || slug.includes("bundling") || title.includes("bundling");
+  // 2. Cek apakah ini Paket Bundling (Diberikan 3 buku terpisah masing-masing atau file gabungan)
+  const isBundle = prodId === 2 || slug.includes("bundling") || title.includes("bundling");
   if (isBundle) {
-    const key = (bookKey || "").toLowerCase();
+    const key = (bookKey || "").toLowerCase().trim();
+
+    // Jika meminta gabungan / all / bundle:
+    if (key === "all" || key === "bundle" || key === "gabungan" || key === "semua") {
+      const bundleAllPath = path.join(akuntansiDir, "Paket_Bundling_3_Buku_Akuntansi_Adrien_Fandra.pdf");
+      if (fs.existsSync(bundleAllPath)) {
+        return {
+          buffer: fs.readFileSync(bundleAllPath),
+          filename: "Paket_Bundling_3_Buku_Akuntansi_Adrien_Fandra.pdf",
+          title: "Paket Bundling 3 Buku (Gabungan)"
+        };
+      }
+    }
+
     let targetBook = BUNDLE_BOOKS[0]; // Default ke buku 1 (Logika Akuntansi)
 
     if (key === "2" || key === "lengkap" || key === "tuntas" || key === "full" || key.includes("lengkap") || key.includes("tuntas") || key.includes("full")) {
       targetBook = BUNDLE_BOOKS[1];
     } else if (key === "3" || key === "gudang" || key.includes("gudang") || key.includes("soal")) {
       targetBook = BUNDLE_BOOKS[2];
+    } else if (key === "1" || key === "logika" || key === "bayi" || key.includes("logika") || key.includes("bayi")) {
+      targetBook = BUNDLE_BOOKS[0];
     } else {
+      // Default jika tidak ada param ?book=: kembalikan Paket Bundling gabungan jika ada, atau Buku 1
+      const bundleAllPath = path.join(akuntansiDir, "Paket_Bundling_3_Buku_Akuntansi_Adrien_Fandra.pdf");
+      if (fs.existsSync(bundleAllPath)) {
+        return {
+          buffer: fs.readFileSync(bundleAllPath),
+          filename: "Paket_Bundling_3_Buku_Akuntansi_Adrien_Fandra.pdf",
+          title: "Paket Bundling 3 Buku"
+        };
+      }
       targetBook = BUNDLE_BOOKS[0];
     }
 
@@ -721,59 +747,88 @@ export async function getEbookPdfBuffer(
     }
   }
 
-  // 4. Pencocokan cerdas berdasarkan judul
-  if (title.includes("logika") || slug.includes("logika") || title.includes("bayi") || slug.includes("bayi")) {
+  // 4. Cek langsung berdasarkan product ID atau judul/slug
+  // Buku 1: Logika Akuntansi (id = 1)
+  if (prodId === 1 || title.includes("logika") || slug.includes("logika") || title.includes("bayi") || slug.includes("bayi")) {
     const candidates = [
       "LOGIKA AKUNTANSI - Adrien Fandra.pdf",
       "[E-Book] AKUNTANSI PAKAI BAHASA BAYI - Adrien Fandra.pdf"
     ];
     for (const c of candidates) {
       const p = path.join(akuntansiDir, c);
-      if (fs.existsSync(p)) return { buffer: fs.readFileSync(p), filename: c, title: "Logika Akuntansi" };
+      if (fs.existsSync(p)) return { buffer: fs.readFileSync(p), filename: "LOGIKA AKUNTANSI - Adrien Fandra.pdf", title: "Logika Akuntansi" };
     }
   }
 
-  if (title.includes("lengkap") || slug.includes("lengkap") || title.includes("full") || slug.includes("full") || title.includes("tuntas") || slug.includes("tuntas")) {
+  // Buku 3: Akuntansi Lengkap (id = 3)
+  if (prodId === 3 || title.includes("lengkap") || slug.includes("lengkap") || title.includes("full") || slug.includes("full") || title.includes("tuntas") || slug.includes("tuntas")) {
     const candidates = [
       "FULL ACCOUNTING - Adrien Fandra.pdf",
       "[E-Book] AKUNTANSI TUNTAS - Adrien Fandra.pdf"
     ];
     for (const c of candidates) {
       const p = path.join(akuntansiDir, c);
-      if (fs.existsSync(p)) return { buffer: fs.readFileSync(p), filename: c, title: "Akuntansi Lengkap" };
+      if (fs.existsSync(p)) return { buffer: fs.readFileSync(p), filename: "FULL ACCOUNTING - Adrien Fandra.pdf", title: "Akuntansi Lengkap" };
     }
   }
 
-  if (title.includes("gudang") || slug.includes("gudang") || title.includes("soal") || slug.includes("soal")) {
+  // Buku 4: Gudang Soal Akuntansi (id = 4)
+  if (prodId === 4 || title.includes("gudang") || slug.includes("gudang") || title.includes("soal") || slug.includes("soal")) {
     const candidates = [
       "Gudang Soal Akuntansi - Adrien Fandra.pdf",
-      "[E-Book] Gudang Soal Latihan Akuntansi - Adrien Fandra.pdf"
+      "[E-Book] Gudang Soal Latihan Akuntansi - Adrien Fandra.pdf",
+      "Gudang Soal Latihan Akuntansi - Adrien Fandra.pdf"
     ];
     for (const c of candidates) {
       const p = path.join(akuntansiDir, c);
-      if (fs.existsSync(p)) return { buffer: fs.readFileSync(p), filename: c, title: "Gudang Soal Akuntansi" };
+      if (fs.existsSync(p)) return { buffer: fs.readFileSync(p), filename: "Gudang Soal Akuntansi - Adrien Fandra.pdf", title: "Gudang Soal Akuntansi" };
     }
   }
 
   // 5. Fallback generator resmi jsPDF
   return {
     buffer: generateEbookPDF(product.title || "E-Book Akuntansi", customerName, orderId),
-    filename: filename || `${(product.title || "Ebook").replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+    filename: filename || `${(product.title || "Ebook").replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
+    title: product.title
   };
 }
 
 // =========================================================================
 // 📧 PENGIRIMAN EMAIL OTOMATIS KE PEMBELI
 // =========================================================================
-export async function sendCustomerDeliveryEmail(order: any, product: any) {
+export async function sendCustomerDeliveryEmail(order: any, product?: any) {
   try {
     const transporter = getTransporter();
+    
+    // Resolve product reliably: periksa order.product_id atau query DB
+    let prod = product;
+    if (!prod || !prod.title || !prod.slug || prod.id === order.id) {
+      try {
+        const pId = order.product_id;
+        if (pId) {
+          const prodRes = await db.execute(sql`
+            SELECT id, slug, title, subtitle, cover_url, pdf_filename, pdf_data_base64 
+            FROM adrien_products 
+            WHERE id = ${pId}
+            LIMIT 1
+          `);
+          if (prodRes.rows && prodRes.rows.length > 0) {
+            prod = prodRes.rows[0];
+          }
+        }
+      } catch (e) {
+        console.warn("[AdrienStore] Error querying product for email:", e);
+      }
+    }
+
+    const prodId = Number(prod?.id || order.product_id || 0);
+    const prodTitle = prod?.title || order.prod_title || order.product_title || "E-Book Akuntansi Adrien Fandra";
+    const prodSlug = (prod?.slug || order.prod_slug || "").toLowerCase();
+    const titleLower = prodTitle.toLowerCase();
+
+    const isBundle = prodId === 2 || prodSlug.includes("bundling") || titleLower.includes("bundling");
     const formattedTotal = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(order.total_amount);
     const orderPageUrl = `https://bilano.app/adrienfandra/order/${order.merchant_order_id}`;
-
-    const isBundle = Number(product.id) === 2 || 
-      (product.slug || "").toLowerCase().includes("bundling") || 
-      (product.title || "").toLowerCase().includes("bundling");
 
     let attachments: any[] = [];
     let itemsDownloadHtml = "";
@@ -820,6 +875,14 @@ export async function sendCustomerDeliveryEmail(order: any, product: any) {
             </a>
           </div>
 
+          <!-- Pilihan Gabungan 1 File PDF -->
+          <div style="background: #eff6ff; border: 1px dashed #93c5fd; border-radius: 12px; padding: 14px; margin-bottom: 16px; text-align: center;">
+            <div style="font-size: 12px; font-weight: 700; color: #1e3a8a; margin-bottom: 8px;">Atau ingin download semua 3 buku dalam 1 file PDF gabungan?</div>
+            <a href="https://bilano.app/api/adrienfandra/download/${order.merchant_order_id}?book=bundle" style="display: inline-block; background: #1e40af; color: #ffffff !important; padding: 10px 20px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 12px;" target="_blank">
+              UNDUH PAKET GABUNGAN 3-IN-1 (PDF)
+            </a>
+          </div>
+
           <a href="${orderPageUrl}" style="display: block; width: 100%; text-align: center; background: #f1f5f9; color: #1e293b !important; padding: 12px 0; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 13px; border: 1px solid #cbd5e1; margin-bottom: 12px;" target="_blank">
             📖 BUKA HALAMAN PESANAN & BACA ONLINE
           </a>
@@ -828,7 +891,7 @@ export async function sendCustomerDeliveryEmail(order: any, product: any) {
     } else {
       // Produk Tunggal
       const { buffer: pdfAttachmentBuffer, filename: pdfFilename } = await getEbookPdfBuffer(
-        product,
+        { id: prodId, title: prodTitle, slug: prodSlug, pdf_filename: prod?.pdf_filename || order.pdf_filename },
         order.customer_name,
         order.merchant_order_id
       );
@@ -841,9 +904,14 @@ export async function sendCustomerDeliveryEmail(order: any, product: any) {
       ];
 
       itemsDownloadHtml = `
-        <a href="${orderPageUrl}" class="btn-download" target="_blank">
-          DOWNLOAD & BUKA E-BOOK SEKARANG
-        </a>
+        <div style="margin: 24px 0;">
+          <a href="https://bilano.app/api/adrienfandra/download/${order.merchant_order_id}" class="btn-download" target="_blank" style="display: block; width: 100%; text-align: center; background: #1D3E72; color: #ffffff !important; padding: 16px 0; border-radius: 100px; font-weight: 800; text-decoration: none; font-size: 15px; margin: 24px 0 12px 0;">
+            📥 UNDUH FILE E-BOOK (PDF) SEKARANG
+          </a>
+          <a href="${orderPageUrl}" style="display: block; width: 100%; text-align: center; background: #f1f5f9; color: #1e293b !important; padding: 12px 0; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 13px; border: 1px solid #cbd5e1; margin-bottom: 12px;" target="_blank">
+            📖 BUKA HALAMAN PESANAN & BACA ONLINE
+          </a>
+        </div>
       `;
     }
 
@@ -875,7 +943,7 @@ export async function sendCustomerDeliveryEmail(order: any, product: any) {
           <div class="content">
             <div class="greeting">Halo ${order.customer_name},</div>
             <p style="font-size: 14px; line-height: 1.6; color: #475569;">
-              Terima kasih! Pembayaran untuk <strong>"${product.title}"</strong> telah kami terima dan diverifikasi. ${isBundle ? "Ketiga e-book telah dilampirkan terpisah pada email ini serta dapat diunduh masing-masing lewat tautan di bawah." : "File e-book telah dilampirkan pada email ini serta dapat diunduh melalui tombol di bawah."}
+              Terima kasih! Pembayaran untuk <strong>"${prodTitle}"</strong> telah kami terima dan diverifikasi. ${isBundle ? "Ketiga e-book dapat diunduh masing-masing lewat tautan di bawah serta telah dilampirkan jika ukuran email mencukupi." : "File e-book telah dilampirkan pada email ini serta dapat diunduh melalui tombol di bawah."}
             </p>
 
             <div class="receipt-box">
@@ -886,7 +954,7 @@ export async function sendCustomerDeliveryEmail(order: any, product: any) {
                 </tr>
                 <tr>
                   <td style="padding: 6px 0; color: #64748b; font-size: 13px;">Produk:</td>
-                  <td style="padding: 6px 0; text-align: right; font-weight: 600; font-size: 13px;">${product.title}</td>
+                  <td style="padding: 6px 0; text-align: right; font-weight: 600; font-size: 13px;">${prodTitle}</td>
                 </tr>
                 <tr>
                   <td style="padding: 6px 0; color: #64748b; font-size: 13px;">Total Bayar:</td>
@@ -897,7 +965,7 @@ export async function sendCustomerDeliveryEmail(order: any, product: any) {
 
             ${itemsDownloadHtml}
 
-            <a href="https://wa.me/6289688113210?text=Halo%20Mas%20Adrien%2C%20saya%20sudah%20membeli%20${encodeURIComponent(product.title)}%20dengan%20Order%20ID%20${order.merchant_order_id}" class="btn-wa" target="_blank">
+            <a href="https://wa.me/6289688113210?text=Halo%20Mas%20Adrien%2C%20saya%20sudah%20membeli%20${encodeURIComponent(prodTitle)}%20dengan%20Order%20ID%20${order.merchant_order_id}" class="btn-wa" target="_blank">
               Bantuan WhatsApp (+6289688113210)
             </a>
           </div>
@@ -909,22 +977,44 @@ export async function sendCustomerDeliveryEmail(order: any, product: any) {
       </html>
     `;
 
-    await transporter.sendMail({
+    const mailOptions = {
       from: `"Adrien Fandra E-Book" <${process.env.EMAIL_USER || "bilanotech@gmail.com"}>`,
       to: order.customer_email,
-      subject: `[LUNAS] E-Book "${product.title}" - Pesanan #${order.merchant_order_id}`,
+      subject: `[LUNAS] E-Book "${prodTitle}" - Pesanan #${order.merchant_order_id}`,
       html: emailHtml,
       attachments: attachments
-    });
+    };
 
-    // Update status email di DB
-    await db.execute(sql`
-      UPDATE adrien_orders 
-      SET email_sent = true, email_sent_at = NOW() 
-      WHERE merchant_order_id = ${order.merchant_order_id}
-    `);
+    let emailDelivered = false;
+    try {
+      await transporter.sendMail(mailOptions);
+      emailDelivered = true;
+      console.log(`[AdrienStore] Email sent successfully with attachments to ${order.customer_email}`);
+    } catch (sendErr: any) {
+      console.warn(`[AdrienStore] SendMail with attachments failed (${sendErr.message || sendErr}). Retrying without attachments to guarantee delivery...`);
+      try {
+        await transporter.sendMail({
+          ...mailOptions,
+          attachments: []
+        });
+        emailDelivered = true;
+        console.log(`[AdrienStore] Email sent successfully without attachments (direct download links included) to ${order.customer_email}`);
+      } catch (retryErr) {
+        console.error(`[AdrienStore] Email retry without attachments failed:`, retryErr);
+      }
+    }
 
-    return true;
+    if (emailDelivered) {
+      // Update status email di DB
+      await db.execute(sql`
+        UPDATE adrien_orders 
+        SET email_sent = true, email_sent_at = NOW() 
+        WHERE merchant_order_id = ${order.merchant_order_id}
+      `).catch(() => {});
+      return true;
+    }
+
+    return false;
   } catch (err) {
     console.error("[AdrienStore] Failed to send email:", err);
     return false;
@@ -1333,12 +1423,15 @@ export function setupAdrienStoreRoutes(app: Express) {
         );
       `);
 
-      // Track checkout event automatically
-      const ip = (req.headers["x-forwarded-for"] as string || req.socket.remoteAddress || "").split(",")[0].trim();
-      db.execute(sql`
-        INSERT INTO adrien_analytics_events (event_type, product_id, product_title, ip_address, metadata)
-        VALUES ('CHECKOUT_START', ${product.id}, ${product.title}, ${ip}, ${JSON.stringify({ orderId: merchantOrderId, email: cleanEmail, totalAmount })}::jsonb)
-      `).catch(() => {});
+      // Track checkout event automatically (Kecuali akun testing adrienahza@gmail.com)
+      const isTestAccount = cleanEmail.toLowerCase() === "adrienahza@gmail.com";
+      if (!isTestAccount) {
+        const ip = (req.headers["x-forwarded-for"] as string || req.socket.remoteAddress || "").split(",")[0].trim();
+        db.execute(sql`
+          INSERT INTO adrien_analytics_events (event_type, product_id, product_title, ip_address, metadata)
+          VALUES ('CHECKOUT_START', ${product.id}, ${product.title}, ${ip}, ${JSON.stringify({ orderId: merchantOrderId, email: cleanEmail, totalAmount })}::jsonb)
+        `).catch(() => {});
+      }
 
       res.json({
         success: true,
@@ -1384,7 +1477,7 @@ export function setupAdrienStoreRoutes(app: Express) {
 
       if (order.payment_status === "PAID") {
         if (!order.email_sent) {
-          sendCustomerDeliveryEmail(order, order).catch(() => {});
+          sendCustomerDeliveryEmail(order, { id: order.product_id, title: order.prod_title, pdf_filename: order.pdf_filename }).catch(() => {});
         }
         return res.json({
           success: true,
@@ -1425,13 +1518,16 @@ export function setupAdrienStoreRoutes(app: Express) {
           WHERE merchant_order_id = ${merchantOrderId}
         `);
 
-        // Track purchase success
-        db.execute(sql`
-          INSERT INTO adrien_analytics_events (event_type, product_id, product_title, metadata)
-          VALUES ('PURCHASE_SUCCESS', ${order.product_id}, ${order.prod_title}, ${JSON.stringify({ orderId: merchantOrderId, amount: order.total_amount })}::jsonb)
-        `).catch(() => {});
+        // Track purchase success (Kecuali akun testing adrienahza@gmail.com)
+        const isTestAccount = (order.customer_email || "").trim().toLowerCase() === "adrienahza@gmail.com";
+        if (!isTestAccount) {
+          db.execute(sql`
+            INSERT INTO adrien_analytics_events (event_type, product_id, product_title, metadata)
+            VALUES ('PURCHASE_SUCCESS', ${order.product_id}, ${order.prod_title}, ${JSON.stringify({ orderId: merchantOrderId, amount: order.total_amount })}::jsonb)
+          `).catch(() => {});
+        }
 
-        sendCustomerDeliveryEmail(order, order).catch(() => {});
+        sendCustomerDeliveryEmail(order, { id: order.product_id, title: order.prod_title, pdf_filename: order.pdf_filename }).catch(() => {});
 
         return res.json({
           success: true,
@@ -1473,14 +1569,17 @@ export function setupAdrienStoreRoutes(app: Express) {
             WHERE merchant_order_id = ${merchantOrderId}
           `);
 
-          // Track analytics event
-          db.execute(sql`
-            INSERT INTO adrien_analytics_events (event_type, product_id, product_title, metadata)
-            VALUES ('PURCHASE_SUCCESS', ${order.product_id}, ${order.prod_title}, ${JSON.stringify({ orderId: merchantOrderId, amount: order.total_amount })}::jsonb)
-          `).catch(() => {});
+          // Track analytics event (Kecuali akun testing adrienahza@gmail.com)
+          const isTestAccount = (order.customer_email || "").trim().toLowerCase() === "adrienahza@gmail.com";
+          if (!isTestAccount) {
+            db.execute(sql`
+              INSERT INTO adrien_analytics_events (event_type, product_id, product_title, metadata)
+              VALUES ('PURCHASE_SUCCESS', ${order.product_id}, ${order.prod_title}, ${JSON.stringify({ orderId: merchantOrderId, amount: order.total_amount })}::jsonb)
+            `).catch(() => {});
+          }
 
           if (!order.email_sent) {
-            await sendCustomerDeliveryEmail(order, order);
+            await sendCustomerDeliveryEmail(order, { id: order.product_id, title: order.prod_title, pdf_filename: order.pdf_filename });
           }
         }
       }
@@ -1497,6 +1596,7 @@ export function setupAdrienStoreRoutes(app: Express) {
   app.get("/api/adrienfandra/order/:orderId", async (req: Request, res: Response) => {
     try {
       const { orderId } = req.params;
+      const cleanOrderId = (orderId || "").trim();
       const result = await db.execute(sql`
         SELECT o.id, o.merchant_order_id, o.product_id, o.product_title, o.customer_name,
                o.customer_email, o.customer_phone, o.total_amount, o.payment_status, o.payment_method,
@@ -1505,7 +1605,9 @@ export function setupAdrienStoreRoutes(app: Express) {
                p.whatsapp_number
           FROM adrien_orders o
           JOIN adrien_products p ON o.product_id = p.id
-         WHERE o.merchant_order_id = ${orderId}
+         WHERE o.merchant_order_id = ${cleanOrderId}
+            OR LOWER(o.merchant_order_id) = LOWER(${cleanOrderId})
+            OR CAST(o.id AS TEXT) = ${cleanOrderId}
          LIMIT 1
       `);
 
@@ -1544,17 +1646,20 @@ export function setupAdrienStoreRoutes(app: Express) {
     }
   });
 
-  // 9. Download PDF (Mendukung parameter ?book=logika | full | gudang untuk bundling)
+  // 9. Download PDF (Mendukung parameter ?book=logika | lengkap | gudang | bundle untuk bundling)
   app.get("/api/adrienfandra/download/:orderId", async (req: Request, res: Response) => {
     try {
       const { orderId } = req.params;
-      const bookKey = (req.query.book as string) || (req.query.item as string) || "";
+      const cleanOrderId = (orderId || "").trim();
+      const bookKey = ((req.query.book as string) || (req.query.item as string) || "").trim().toLowerCase();
 
       const orderRes = await db.execute(sql`
         SELECT o.*, p.title as prod_title, p.slug as prod_slug, p.pdf_filename, p.pdf_data_base64
         FROM adrien_orders o
         JOIN adrien_products p ON o.product_id = p.id
-        WHERE o.merchant_order_id = ${orderId}
+        WHERE o.merchant_order_id = ${cleanOrderId}
+           OR LOWER(o.merchant_order_id) = LOWER(${cleanOrderId})
+           OR CAST(o.id AS TEXT) = ${cleanOrderId}
         LIMIT 1
       `);
 
@@ -1566,7 +1671,7 @@ export function setupAdrienStoreRoutes(app: Express) {
       const { buffer: pdfBuffer, filename } = await getEbookPdfBuffer(
         { 
           id: order.product_id, 
-          title: order.prod_title, 
+          title: order.prod_title || order.product_title, 
           slug: order.prod_slug, 
           pdf_filename: order.pdf_filename, 
           pdf_data_base64: order.pdf_data_base64 
@@ -1580,6 +1685,7 @@ export function setupAdrienStoreRoutes(app: Express) {
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader("Content-Disposition", `attachment; filename="${safeFilename}"; filename*=UTF-8''${encodeURIComponent(safeFilename)}`);
       res.setHeader("Content-Length", pdfBuffer.length);
+      res.setHeader("Accept-Ranges", "bytes");
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
@@ -1590,17 +1696,20 @@ export function setupAdrienStoreRoutes(app: Express) {
     }
   });
 
-  // 10. Baca Online (Mendukung parameter ?book=logika | full | gudang untuk bundling)
+  // 10. Baca Online (Mendukung parameter ?book=logika | lengkap | gudang untuk bundling)
   app.get("/api/adrienfandra/read-pdf/:orderId", async (req: Request, res: Response) => {
     try {
       const { orderId } = req.params;
-      const bookKey = (req.query.book as string) || (req.query.item as string) || "";
+      const cleanOrderId = (orderId || "").trim();
+      const bookKey = ((req.query.book as string) || (req.query.item as string) || "").trim().toLowerCase();
 
       const orderRes = await db.execute(sql`
         SELECT o.*, p.title as prod_title, p.slug as prod_slug, p.pdf_filename, p.pdf_data_base64
         FROM adrien_orders o
         JOIN adrien_products p ON o.product_id = p.id
-        WHERE o.merchant_order_id = ${orderId}
+        WHERE o.merchant_order_id = ${cleanOrderId}
+           OR LOWER(o.merchant_order_id) = LOWER(${cleanOrderId})
+           OR CAST(o.id AS TEXT) = ${cleanOrderId}
         LIMIT 1
       `);
 
@@ -1612,7 +1721,7 @@ export function setupAdrienStoreRoutes(app: Express) {
       const { buffer: pdfBuffer, filename } = await getEbookPdfBuffer(
         { 
           id: order.product_id, 
-          title: order.prod_title, 
+          title: order.prod_title || order.product_title, 
           slug: order.prod_slug, 
           pdf_filename: order.pdf_filename, 
           pdf_data_base64: order.pdf_data_base64 
@@ -1625,6 +1734,7 @@ export function setupAdrienStoreRoutes(app: Express) {
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
       res.setHeader("Content-Length", pdfBuffer.length);
+      res.setHeader("Accept-Ranges", "bytes");
       res.end(pdfBuffer);
     } catch (error: any) {
       res.status(500).send("Gagal membuka PDF: " + error.message);
@@ -1699,12 +1809,12 @@ export function setupAdrienStoreRoutes(app: Express) {
       ] = await Promise.all([
         db.execute(sql`SELECT * FROM adrien_store_settings LIMIT 1`),
         db.execute(sql`SELECT id, slug, title, subtitle, category, cover_url, promo_images, regular_price, sale_price, sales_headline, sales_body, highlights, testimonials, scarcity_text, reader_count, whatsapp_number, pdf_filename, is_active, sort_order, created_at, (pdf_data_base64 IS NOT NULL) AS has_custom_pdf FROM adrien_products ORDER BY sort_order ASC, id ASC`),
-        db.execute(sql`SELECT * FROM adrien_orders ORDER BY created_at DESC LIMIT 500`),
+        db.execute(sql`SELECT * FROM adrien_orders WHERE LOWER(TRIM(customer_email)) != 'adrienahza@gmail.com' ORDER BY created_at DESC LIMIT 500`),
         db.execute(sql`SELECT * FROM adrien_vouchers ORDER BY created_at DESC`),
         db.execute(sql`SELECT COUNT(*) as count FROM adrien_analytics_events WHERE event_type = 'PAGE_VIEW'`),
         db.execute(sql`SELECT COUNT(DISTINCT visitor_id) as count FROM adrien_analytics_events WHERE visitor_id IS NOT NULL AND visitor_id != ''`),
         db.execute(sql`SELECT COUNT(*) as count FROM adrien_analytics_events WHERE event_type = 'PRODUCT_CLICK'`),
-        db.execute(sql`SELECT * FROM adrien_analytics_events ORDER BY created_at DESC LIMIT 60`),
+        db.execute(sql`SELECT * FROM adrien_analytics_events WHERE metadata->>'email' IS NULL OR LOWER(TRIM(metadata->>'email')) != 'adrienahza@gmail.com' ORDER BY created_at DESC LIMIT 60`),
         db.execute(sql`
           SELECT product_id, COUNT(*) as click_count 
           FROM adrien_analytics_events 
@@ -2124,7 +2234,7 @@ export function setupAdrienStoreRoutes(app: Express) {
       }
 
       const order: any = orderRes.rows[0];
-      const sent = await sendCustomerDeliveryEmail(order, order);
+      const sent = await sendCustomerDeliveryEmail(order, { id: order.product_id, title: order.prod_title, pdf_filename: order.pdf_filename });
 
       if (sent) {
         res.json({ success: true, message: `Email file PDF berhasil dikirim ulang ke ${order.customer_email}.` });
@@ -2159,13 +2269,16 @@ export function setupAdrienStoreRoutes(app: Express) {
         WHERE merchant_order_id = ${orderId}
       `);
 
-      // Track analytics
-      db.execute(sql`
-        INSERT INTO adrien_analytics_events (event_type, product_id, product_title, metadata)
-        VALUES ('PURCHASE_SUCCESS', ${order.product_id}, ${order.prod_title}, ${JSON.stringify({ orderId, amount: order.total_amount, manual: true })}::jsonb)
-      `).catch(() => {});
+      // Track analytics (Kecuali akun testing adrienahza@gmail.com)
+      const isTestAccount = (order.customer_email || "").trim().toLowerCase() === "adrienahza@gmail.com";
+      if (!isTestAccount) {
+        db.execute(sql`
+          INSERT INTO adrien_analytics_events (event_type, product_id, product_title, metadata)
+          VALUES ('PURCHASE_SUCCESS', ${order.product_id}, ${order.prod_title}, ${JSON.stringify({ orderId, amount: order.total_amount, manual: true })}::jsonb)
+        `).catch(() => {});
+      }
 
-      sendCustomerDeliveryEmail(order, order).catch(() => {});
+      sendCustomerDeliveryEmail(order, { id: order.product_id, title: order.prod_title, pdf_filename: order.pdf_filename }).catch(() => {});
 
       res.json({ success: true, message: "Pesanan berhasil ditandai LUNAS." });
     } catch (error: any) {
