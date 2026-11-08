@@ -461,8 +461,8 @@ export default function ProductDetail() {
               onScroll={handleScroll}
               className={`flex overflow-x-auto snap-x snap-mandatory scrollbar-none scroll-smooth items-center w-full ${
                 isBundling
-                  ? "min-h-[200px] sm:min-h-[250px] md:min-h-[280px]"
-                  : "min-h-[250px] sm:min-h-[290px] md:min-h-[330px]"
+                  ? "min-h-[245px] sm:min-h-[295px] md:min-h-[330px]"
+                  : "min-h-[285px] sm:min-h-[330px] md:min-h-[370px]"
               }`}
               style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}
             >
@@ -471,8 +471,8 @@ export default function ProductDetail() {
                   key={idx}
                   className={`min-w-full w-full snap-center flex-shrink-0 flex items-center justify-center select-none bg-white ${
                     idx === 0 && isBundling
-                      ? "px-1 py-1.5 sm:px-2 sm:py-2"
-                      : "p-2 sm:p-3"
+                      ? "px-1.5 py-2 sm:px-2.5 sm:py-2.5"
+                      : "p-2.5 sm:p-3.5"
                   }`}
                 >
                   {idx === 0 ? (
@@ -480,7 +480,7 @@ export default function ProductDetail() {
                       // =========================================================================
                       // SLIDE 1 KHUSUS PAKET BUNDLING:
                       // - Tanpa stroke / border dan tanpa drop-shadow (menyatu total dengan latar putih)
-                      // - Ukuran pas kotak, tidak makan tempat berlebih, dan tidak terpotong
+                      // - Ukuran diperbesar sedikit secara proporsional agar mantap & tidak kekecilan
                       // =========================================================================
                       <div className="relative flex items-center justify-center w-full max-w-full overflow-visible">
                         <img
@@ -488,7 +488,7 @@ export default function ProductDetail() {
                           alt={`${product.title} - Cover`}
                           loading="eager"
                           decoding="async"
-                          className="w-full max-w-full sm:max-w-[96%] md:max-w-[92%] h-auto max-h-[195px] sm:max-h-[240px] md:max-h-[270px] object-contain transition-transform duration-300 pointer-events-none mix-blend-multiply border-0 shadow-none drop-shadow-none"
+                          className="w-full max-w-full sm:max-w-[96%] md:max-w-[92%] h-auto max-h-[235px] sm:max-h-[280px] md:max-h-[315px] object-contain scale-[1.06] sm:scale-[1.10] transition-transform duration-300 pointer-events-none mix-blend-multiply border-0 shadow-none drop-shadow-none"
                           draggable={false}
                         />
                       </div>
@@ -499,7 +499,7 @@ export default function ProductDetail() {
                         alt={`${product.title} - Cover`}
                         loading="eager"
                         decoding="async"
-                        className="max-h-[240px] sm:max-h-[280px] md:max-h-[320px] w-auto max-w-full object-contain transition-transform duration-300 pointer-events-none drop-shadow-md"
+                        className="max-h-[270px] sm:max-h-[315px] md:max-h-[350px] w-auto max-w-full object-contain transition-transform duration-300 pointer-events-none drop-shadow-md"
                         draggable={false}
                       />
                     )
@@ -507,7 +507,7 @@ export default function ProductDetail() {
                     // =========================================================================
                     // SLIDE 2 KE ATAS (SEMUA PRODUK TERMASUK BUNDLING):
                     // - Tetap pakai stroke tipis agar sisi kertas terlihat jelas
-                    // - Ukuran pas proporsional agar tidak makan tempat & tetap jernih
+                    // - Ukuran pas proporsional agar jernih & nyaman dibaca
                     // =========================================================================
                     <div className="relative flex items-center justify-center w-full max-w-[95%] sm:max-w-[90%] md:max-w-[86%]">
                       <img
@@ -517,8 +517,8 @@ export default function ProductDetail() {
                         decoding="async"
                         className={`w-auto max-w-full object-contain border border-slate-300 rounded-xs shadow-[0_4px_16px_rgba(0,0,0,0.08)] transition-transform duration-300 pointer-events-none bg-white ${
                           isBundling
-                            ? "max-h-[190px] sm:max-h-[240px] md:max-h-[270px]"
-                            : "max-h-[240px] sm:max-h-[280px] md:max-h-[320px]"
+                            ? "max-h-[230px] sm:max-h-[275px] md:max-h-[310px]"
+                            : "max-h-[270px] sm:max-h-[315px] md:max-h-[350px]"
                         }`}
                         draggable={false}
                       />
