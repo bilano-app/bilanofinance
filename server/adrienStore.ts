@@ -348,19 +348,19 @@ async function seedDefaultAdrienStoreData() {
       await db.execute(sql`
         UPDATE adrien_products 
         SET promo_images = '["/Akuntansi/Bundling.png", "/Akuntansi/Bundling (2).png", "/Akuntansi/Bundling (3).png"]'::jsonb
-        WHERE (id = 2 OR slug = 'paket-bundling-3-buku') AND (promo_images IS NULL OR jsonb_array_length(promo_images) = 0);
+        WHERE (id = 2 OR slug = 'paket-bundling-3-buku');
 
         UPDATE adrien_products 
         SET promo_images = '["/Akuntansi/Logika Akuntansi.png", "/Akuntansi/Logika Akuntansi (2).png"]'::jsonb
-        WHERE (id = 1 OR slug = 'logika-akuntansi') AND (promo_images IS NULL OR jsonb_array_length(promo_images) = 0);
+        WHERE (id = 1 OR slug = 'logika-akuntansi');
 
         UPDATE adrien_products 
         SET promo_images = '["/Akuntansi/Full Accounting.png", "/Akuntansi/Full Accounting (2).png"]'::jsonb
-        WHERE (id = 3 OR slug = 'full-accounting') AND (promo_images IS NULL OR jsonb_array_length(promo_images) = 0);
+        WHERE (id = 3 OR slug = 'full-accounting');
 
         UPDATE adrien_products 
         SET promo_images = '["/Akuntansi/Gudang Soal.png", "/Akuntansi/Gudang Soal (2).png"]'::jsonb
-        WHERE (id = 4 OR slug = 'gudang-akuntansi') AND (promo_images IS NULL OR jsonb_array_length(promo_images) = 0);
+        WHERE (id = 4 OR slug = 'gudang-akuntansi');
       `);
     } catch (e) {}
 

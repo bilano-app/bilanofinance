@@ -307,25 +307,57 @@ export default function ProductDetail() {
     return url;
   };
 
-  const DEFAULT_PROMO_MAP: Record<string, string[]> = {
-    "paket-bundling-3-buku": ["/Akuntansi/Bundling.png", "/Akuntansi/Bundling (2).png", "/Akuntansi/Bundling (3).png"],
-    "2": ["/Akuntansi/Bundling.png", "/Akuntansi/Bundling (2).png", "/Akuntansi/Bundling (3).png"],
-    "logika-akuntansi": ["/Akuntansi/Logika Akuntansi.png", "/Akuntansi/Logika Akuntansi (2).png"],
-    "1": ["/Akuntansi/Logika Akuntansi.png", "/Akuntansi/Logika Akuntansi (2).png"],
-    "full-accounting": ["/Akuntansi/Full Accounting.png", "/Akuntansi/Full Accounting (2).png"],
-    "3": ["/Akuntansi/Full Accounting.png", "/Akuntansi/Full Accounting (2).png"],
-    "gudang-akuntansi": ["/Akuntansi/Gudang Soal.png", "/Akuntansi/Gudang Soal (2).png"],
-    "4": ["/Akuntansi/Gudang Soal.png", "/Akuntansi/Gudang Soal (2).png"],
+  // Pemetaan resmi gambar preview contoh halaman per buku
+  // Slide 1: Cover Mockup, Slide 2 dst: Contoh halaman buku asli
+  const BOOK_PREVIEW_MAP: Record<string, string[]> = {
+    // 1. Paket Bundling 3 Buku (Bundling, Bundling 2, Bundling 3)
+    "paket-bundling-3-buku": [
+      "/Akuntansi/Bundling.png",
+      "/Akuntansi/Bundling (2).png",
+      "/Akuntansi/Bundling (3).png"
+    ],
+    "2": [
+      "/Akuntansi/Bundling.png",
+      "/Akuntansi/Bundling (2).png",
+      "/Akuntansi/Bundling (3).png"
+    ],
+    // 2. Logika Akuntansi (Logika Akuntansi, Logika Akuntansi 2)
+    "logika-akuntansi": [
+      "/Akuntansi/Logika Akuntansi.png",
+      "/Akuntansi/Logika Akuntansi (2).png"
+    ],
+    "1": [
+      "/Akuntansi/Logika Akuntansi.png",
+      "/Akuntansi/Logika Akuntansi (2).png"
+    ],
+    // 3. Full Accounting / Akuntansi Lengkap (Full Accounting, Full Accounting 2)
+    "full-accounting": [
+      "/Akuntansi/Full Accounting.png",
+      "/Akuntansi/Full Accounting (2).png"
+    ],
+    "3": [
+      "/Akuntansi/Full Accounting.png",
+      "/Akuntansi/Full Accounting (2).png"
+    ],
+    // 4. Gudang Soal Akuntansi (Gudang Soal, Gudang Soal 2)
+    "gudang-akuntansi": [
+      "/Akuntansi/Gudang Soal.png",
+      "/Akuntansi/Gudang Soal (2).png"
+    ],
+    "4": [
+      "/Akuntansi/Gudang Soal.png",
+      "/Akuntansi/Gudang Soal (2).png"
+    ]
   };
 
-  const rawPromoImages = (product.promo_images && product.promo_images.length > 0)
-    ? product.promo_images
-    : (DEFAULT_PROMO_MAP[product.slug] || DEFAULT_PROMO_MAP[String(product.id)] || []);
+  const previewImages = BOOK_PREVIEW_MAP[product.slug] || 
+    BOOK_PREVIEW_MAP[String(product.id)] || 
+    (product.promo_images && product.promo_images.length > 0 ? product.promo_images : []);
 
-  // Filter dan susun daftar slide (cover di urutan pertama, disusul gambar preview isi buku yang bisa diswipe)
+  // Filter dan susun daftar slide: cover di urutan pertama (1), disusul contoh halaman buku untuk swipe ke-2 dst
   const slides = [
     resolveCoverUrl(product.cover_url || "/placeholder-cover"),
-    ...rawPromoImages
+    ...previewImages
   ].filter(Boolean);
 
   const handleShare = () => {
@@ -427,22 +459,38 @@ export default function ProductDetail() {
             <div
               ref={scrollRef}
               onScroll={handleScroll}
-              className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none scroll-smooth items-center min-h-[360px] sm:min-h-[440px] md:min-h-[480px] w-full"
+              className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none scroll-smooth items-center min-h-[380px] sm:min-h-[460px] md:min-h-[520px] w-full"
               style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}
             >
               {slides.map((src, idx) => (
                 <div
                   key={idx}
-                  className="min-w-full w-full snap-center flex-shrink-0 flex items-center justify-center p-2 sm:p-4 select-none bg-white"
+                  className="min-w-full w-full snap-center flex-shrink-0 flex items-center justify-center p-3 sm:p-5 select-none bg-white"
                 >
-                  <img
-                    src={src}
-                    alt={`${product.title} - Preview ${idx + 1}`}
-                    loading={idx === 0 ? "eager" : "lazy"}
-                    decoding="async"
-                    className="max-h-[360px] sm:max-h-[440px] md:max-h-[480px] w-auto max-w-full object-contain mix-blend-multiply transition-transform duration-300 pointer-events-none"
-                    draggable={false}
-                  />
+                  {idx === 0 ? (
+                    // Slide 1: Cover Mockup 3D
+                    <img
+                      src={src}
+                      alt={`${product.title} - Cover`}
+                      loading="eager"
+                      decoding="async"
+                      className="max-h-[380px] sm:max-h-[460px] md:max-h-[500px] w-auto max-w-full object-contain transition-transform duration-300 pointer-events-none drop-shadow-md"
+                      draggable={false}
+                    />
+                  ) : (
+                    // Slide 2 ke atas: Contoh Halaman E-Book
+                    // Ukuran maksimal (tidak over), dasar tetap putih, dan diberikan stroke tipis agar kelihatan sisi kertasnya
+                    <div className="relative flex items-center justify-center w-full max-w-[94%] sm:max-w-[88%] md:max-w-[84%]">
+                      <img
+                        src={src}
+                        alt={`${product.title} - Contoh Halaman ${idx}`}
+                        loading="lazy"
+                        decoding="async"
+                        className="max-h-[420px] sm:max-h-[500px] md:max-h-[540px] w-auto max-w-full object-contain border border-slate-300/90 rounded-xs shadow-[0_4px_16px_rgba(0,0,0,0.08)] transition-transform duration-300 pointer-events-none bg-white"
+                        draggable={false}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -513,7 +561,7 @@ export default function ProductDetail() {
                   <img
                     src={src}
                     alt={`Preview mini ${idx + 1}`}
-                    className="w-full h-full object-contain"
+                    className={`w-full h-full object-contain ${idx > 0 ? "border border-slate-300/80 rounded-2xs" : ""}`}
                   />
                 </button>
               ))}
