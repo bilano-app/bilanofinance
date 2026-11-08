@@ -425,12 +425,12 @@ export default function ProductDetail() {
       )}
 
       {/* 📱 DETAIL SALES LETTER CONTAINER */}
-      <main className="max-w-lg mx-auto px-4 py-4 space-y-6">
+      <main className="max-w-lg mx-auto px-4 py-3 sm:py-4 space-y-4 sm:space-y-5">
         
         {/* =========================================================================
             1. JUDUL PRODUK & HOOK UTAMA
             ========================================================================= */}
-        <div className="text-left space-y-1.5">
+        <div className="text-left space-y-1">
           <h1 className="text-xl sm:text-2xl font-black text-[#0F2247] tracking-tight leading-tight">
             {product.title}
           </h1>
@@ -444,14 +444,14 @@ export default function ProductDetail() {
         {/* =========================================================================
             2. IMAGE GALLERY / SWIPEABLE CAROUSEL (BISA DISWIPE KE KANAN & KIRI)
             ========================================================================= */}
-        <div className="space-y-3">
-          <div className="relative rounded-3xl overflow-hidden bg-white border border-slate-200/90 shadow-sm group">
+        <div className="space-y-2.5">
+          <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden bg-white border border-slate-200/90 shadow-sm group">
             
             {/* Chip panduan swipe jika gambar lebih dari 1 */}
             {slides.length > 1 && (
-              <div className="absolute top-3 right-3 z-20 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-md pointer-events-none border border-white/20 select-none">
+              <div className="absolute top-2.5 right-2.5 z-20 bg-slate-900/80 backdrop-blur-xs text-white text-[9px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-xs pointer-events-none border border-white/20 select-none">
                 <span>Geser preview</span>
-                <ChevronRight className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                <ChevronRight className="w-3 h-3 text-amber-300 animate-pulse" />
               </div>
             )}
 
@@ -459,7 +459,11 @@ export default function ProductDetail() {
             <div
               ref={scrollRef}
               onScroll={handleScroll}
-              className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none scroll-smooth items-center min-h-[380px] sm:min-h-[460px] md:min-h-[520px] w-full"
+              className={`flex overflow-x-auto snap-x snap-mandatory scrollbar-none scroll-smooth items-center w-full ${
+                isBundling
+                  ? "min-h-[200px] sm:min-h-[250px] md:min-h-[280px]"
+                  : "min-h-[250px] sm:min-h-[290px] md:min-h-[330px]"
+              }`}
               style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}
             >
               {slides.map((src, idx) => (
@@ -467,8 +471,8 @@ export default function ProductDetail() {
                   key={idx}
                   className={`min-w-full w-full snap-center flex-shrink-0 flex items-center justify-center select-none bg-white ${
                     idx === 0 && isBundling
-                      ? "px-1 py-4 sm:px-3 sm:py-6"
-                      : "p-3 sm:p-5"
+                      ? "px-1 py-1.5 sm:px-2 sm:py-2"
+                      : "p-2 sm:p-3"
                   }`}
                 >
                   {idx === 0 ? (
@@ -476,7 +480,7 @@ export default function ProductDetail() {
                       // =========================================================================
                       // SLIDE 1 KHUSUS PAKET BUNDLING:
                       // - Tanpa stroke / border dan tanpa drop-shadow (menyatu total dengan latar putih)
-                      // - Ukuran diperbesar secara proporsional agar mantap & tidak terpotong
+                      // - Ukuran pas kotak, tidak makan tempat berlebih, dan tidak terpotong
                       // =========================================================================
                       <div className="relative flex items-center justify-center w-full max-w-full overflow-visible">
                         <img
@@ -484,7 +488,7 @@ export default function ProductDetail() {
                           alt={`${product.title} - Cover`}
                           loading="eager"
                           decoding="async"
-                          className="w-full max-w-full sm:max-w-[96%] md:max-w-[92%] h-auto max-h-[340px] sm:max-h-[420px] md:max-h-[460px] object-contain scale-[1.12] sm:scale-[1.16] md:scale-[1.18] transition-transform duration-300 pointer-events-none mix-blend-multiply border-0 shadow-none drop-shadow-none"
+                          className="w-full max-w-full sm:max-w-[96%] md:max-w-[92%] h-auto max-h-[195px] sm:max-h-[240px] md:max-h-[270px] object-contain transition-transform duration-300 pointer-events-none mix-blend-multiply border-0 shadow-none drop-shadow-none"
                           draggable={false}
                         />
                       </div>
@@ -495,7 +499,7 @@ export default function ProductDetail() {
                         alt={`${product.title} - Cover`}
                         loading="eager"
                         decoding="async"
-                        className="max-h-[380px] sm:max-h-[460px] md:max-h-[500px] w-auto max-w-full object-contain transition-transform duration-300 pointer-events-none drop-shadow-md"
+                        className="max-h-[240px] sm:max-h-[280px] md:max-h-[320px] w-auto max-w-full object-contain transition-transform duration-300 pointer-events-none drop-shadow-md"
                         draggable={false}
                       />
                     )
@@ -503,7 +507,7 @@ export default function ProductDetail() {
                     // =========================================================================
                     // SLIDE 2 KE ATAS (SEMUA PRODUK TERMASUK BUNDLING):
                     // - Tetap pakai stroke tipis agar sisi kertas terlihat jelas
-                    // - Ukuran kembali standar (tidak diperbesar) agar tetap jernih, tajam, & tidak buram
+                    // - Ukuran pas proporsional agar tidak makan tempat & tetap jernih
                     // =========================================================================
                     <div className="relative flex items-center justify-center w-full max-w-[95%] sm:max-w-[90%] md:max-w-[86%]">
                       <img
@@ -511,7 +515,11 @@ export default function ProductDetail() {
                         alt={`${product.title} - Contoh Halaman ${idx}`}
                         loading="lazy"
                         decoding="async"
-                        className="max-h-[430px] sm:max-h-[510px] md:max-h-[550px] w-auto max-w-full object-contain border border-slate-300 rounded-xs shadow-[0_4px_16px_rgba(0,0,0,0.08)] transition-transform duration-300 pointer-events-none bg-white"
+                        className={`w-auto max-w-full object-contain border border-slate-300 rounded-xs shadow-[0_4px_16px_rgba(0,0,0,0.08)] transition-transform duration-300 pointer-events-none bg-white ${
+                          isBundling
+                            ? "max-h-[190px] sm:max-h-[240px] md:max-h-[270px]"
+                            : "max-h-[240px] sm:max-h-[280px] md:max-h-[320px]"
+                        }`}
                         draggable={false}
                       />
                     </div>
@@ -526,18 +534,18 @@ export default function ProductDetail() {
                 <button
                   type="button"
                   onClick={() => scrollToSlide(activeSlide > 0 ? activeSlide - 1 : slides.length - 1)}
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-slate-800 flex items-center justify-center shadow-lg border border-slate-200 transition-all hover:scale-105 active:scale-95 z-20 cursor-pointer"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-slate-800 flex items-center justify-center shadow-md border border-slate-200 transition-all hover:scale-105 active:scale-95 z-20 cursor-pointer"
                   aria-label="Slide sebelumnya"
                 >
-                  <ChevronLeft className="w-5 h-5" />
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
                 <button
                   type="button"
                   onClick={() => scrollToSlide(activeSlide < slides.length - 1 ? activeSlide + 1 : 0)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-slate-800 flex items-center justify-center shadow-lg border border-slate-200 transition-all hover:scale-105 active:scale-95 z-20 cursor-pointer"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-slate-800 flex items-center justify-center shadow-md border border-slate-200 transition-all hover:scale-105 active:scale-95 z-20 cursor-pointer"
                   aria-label="Slide berikutnya"
                 >
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </>
             )}
@@ -570,15 +578,15 @@ export default function ProductDetail() {
 
           {/* Thumbnail Strip untuk Akses Cepat Preview */}
           {slides.length > 1 && (
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 scrollbar-none">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 pt-0.5 scrollbar-none">
               {slides.map((src, idx) => (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => scrollToSlide(idx)}
-                  className={`relative w-14 h-16 sm:w-16 sm:h-20 rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all bg-white p-1 cursor-pointer ${
+                  className={`relative w-12 h-14 sm:w-14 sm:h-16 rounded-lg overflow-hidden border-2 flex-shrink-0 transition-all bg-white p-0.5 cursor-pointer ${
                     activeSlide === idx
-                      ? "border-[#1D3E72] ring-2 ring-blue-500/30 scale-102 shadow-sm"
+                      ? "border-[#1D3E72] ring-2 ring-blue-500/30 scale-102 shadow-xs"
                       : "border-slate-200 opacity-60 hover:opacity-100"
                   }`}
                   aria-label={`Pilih preview ${idx + 1}`}
