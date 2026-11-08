@@ -2134,7 +2134,7 @@ export default function ManagerDashboard() {
                       <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 uppercase text-[10px] font-black">
                         <th className="py-3 px-4">Order ID & Waktu</th>
                         <th className="py-3 px-4">Calon Pembeli</th>
-                        <th className="py-3 px-4">WhatsApp (Follow-up)</th>
+                        <th className="py-3 px-4">No. Telepon / WA</th>
                         <th className="py-3 px-4">E-Book Dipesan</th>
                         <th className="py-3 px-4">Total</th>
                         <th className="py-3 px-4">Status</th>
@@ -2164,19 +2164,29 @@ export default function ManagerDashboard() {
                             <td className="py-3.5 px-4">
                               <div className="font-black text-slate-900">{ord.customer_name}</div>
                               <div className="text-[11px] text-slate-500 font-mono">{ord.customer_email}</div>
+                              {ord.customer_phone && ord.customer_phone !== "-" && cleanPhone.length >= 6 && (
+                                <div className="text-[11px] text-emerald-700 font-mono font-bold mt-0.5 sm:hidden flex items-center gap-1">
+                                  <MessageCircle className="w-3 h-3 text-emerald-600 inline" />
+                                  <span>{ord.customer_phone}</span>
+                                </div>
+                              )}
                             </td>
 
-                            <td className="py-3.5 px-4">
-                              <a
-                                href={waLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-black text-xs transition-colors border border-emerald-200"
-                                title="Chat WhatsApp Calon Pembeli"
-                              >
-                                <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>{ord.customer_phone}</span>
-                              </a>
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              {cleanPhone && cleanPhone !== "-" && cleanPhone.length >= 6 ? (
+                                <a
+                                  href={waLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs transition-colors border border-emerald-200"
+                                  title="Chat WhatsApp Calon Pembeli"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                                  <span className="font-mono">{ord.customer_phone}</span>
+                                </a>
+                              ) : (
+                                <span className="text-slate-400 font-mono text-xs">{ord.customer_phone || "-"}</span>
+                              )}
                             </td>
 
                             <td className="py-3.5 px-4 font-bold text-slate-800 max-w-[200px] truncate">

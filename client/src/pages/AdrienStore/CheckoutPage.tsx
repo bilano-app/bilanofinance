@@ -525,8 +525,8 @@ export default function CheckoutPage() {
   // Submit Checkout & Panggil Payment Gateway
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.email.trim()) {
-      alert("Harap lengkapi Nama Lengkap dan Email Anda.");
+    if (!formData.name.trim() || !formData.email.trim() || !formData.phone.trim()) {
+      alert("Harap lengkapi Nama Lengkap, Email, dan Nomor Telepon/WhatsApp Anda.");
       return;
     }
 
@@ -894,6 +894,20 @@ export default function CheckoutPage() {
                     placeholder="Your Name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full bg-white border border-slate-400 hover:border-slate-500 focus:border-[#1D3E72] focus:ring-1 focus:ring-[#1D3E72] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all shadow-2xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    * Nomor Telepon / WhatsApp <span className="text-[10px] text-slate-400 font-normal">(Untuk konfirmasi & bantuan akses cepat)</span>
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="Contoh: 081234567890"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className="w-full bg-white border border-slate-400 hover:border-slate-500 focus:border-[#1D3E72] focus:ring-1 focus:ring-[#1D3E72] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all shadow-2xs"
                   />
                 </div>
