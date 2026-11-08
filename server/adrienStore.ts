@@ -347,19 +347,19 @@ async function seedDefaultAdrienStoreData() {
     try {
       await db.execute(sql`
         UPDATE adrien_products 
-        SET promo_images = '["/Akuntansi/Bundling.png", "/Akuntansi/Bundling (2).png", "/Akuntansi/Bundling (3).png"]'::jsonb
+        SET promo_images = '["/Akuntansi/Bundling.jpg", "/Akuntansi/Bundling 2.jpg", "/Akuntansi/Bundling 3.jpg"]'::jsonb
         WHERE (id = 2 OR slug = 'paket-bundling-3-buku');
 
         UPDATE adrien_products 
-        SET promo_images = '["/Akuntansi/Logika Akuntansi.png", "/Akuntansi/Logika Akuntansi (2).png"]'::jsonb
+        SET promo_images = '["/Akuntansi/Logika Akuntansi.jpg", "/Akuntansi/Logika Akuntansi 2.jpg"]'::jsonb
         WHERE (id = 1 OR slug = 'logika-akuntansi');
 
         UPDATE adrien_products 
-        SET promo_images = '["/Akuntansi/Full Accounting.png", "/Akuntansi/Full Accounting (2).png"]'::jsonb
+        SET promo_images = '["/Akuntansi/Full Accounting.jpg", "/Akuntansi/Full Accounting 2.jpg"]'::jsonb
         WHERE (id = 3 OR slug = 'full-accounting');
 
         UPDATE adrien_products 
-        SET promo_images = '["/Akuntansi/Gudang Soal.png", "/Akuntansi/Gudang Soal (2).png"]'::jsonb
+        SET promo_images = '["/Akuntansi/Gudang Soal.jpg", "/Akuntansi/Gudang Soal 2.jpg"]'::jsonb
         WHERE (id = 4 OR slug = 'gudang-akuntansi');
       `);
     } catch (e) {}
@@ -1090,13 +1090,13 @@ export function setupAdrienStoreRoutes(app: Express) {
         let promo = p.promo_images;
         if (!promo || !Array.isArray(promo) || promo.length === 0) {
           if (p.id === 2 || p.slug === "paket-bundling-3-buku") {
-            promo = ["/Akuntansi/Bundling.png", "/Akuntansi/Bundling (2).png", "/Akuntansi/Bundling (3).png"];
+            promo = ["/Akuntansi/Bundling.jpg", "/Akuntansi/Bundling 2.jpg", "/Akuntansi/Bundling 3.jpg"];
           } else if (p.id === 1 || p.slug === "logika-akuntansi") {
-            promo = ["/Akuntansi/Logika Akuntansi.png", "/Akuntansi/Logika Akuntansi (2).png"];
+            promo = ["/Akuntansi/Logika Akuntansi.jpg", "/Akuntansi/Logika Akuntansi 2.jpg"];
           } else if (p.id === 3 || p.slug === "full-accounting") {
-            promo = ["/Akuntansi/Full Accounting.png", "/Akuntansi/Full Accounting (2).png"];
+            promo = ["/Akuntansi/Full Accounting.jpg", "/Akuntansi/Full Accounting 2.jpg"];
           } else if (p.id === 4 || p.slug === "gudang-akuntansi") {
-            promo = ["/Akuntansi/Gudang Soal.png", "/Akuntansi/Gudang Soal (2).png"];
+            promo = ["/Akuntansi/Gudang Soal.jpg", "/Akuntansi/Gudang Soal 2.jpg"];
           } else {
             promo = [];
           }
@@ -1152,13 +1152,13 @@ export function setupAdrienStoreRoutes(app: Express) {
       let promo = rawRow.promo_images;
       if (!promo || !Array.isArray(promo) || promo.length === 0) {
         if (rawRow.id === 2 || rawRow.slug === "paket-bundling-3-buku") {
-          promo = ["/Akuntansi/Bundling.png", "/Akuntansi/Bundling (2).png", "/Akuntansi/Bundling (3).png"];
+          promo = ["/Akuntansi/Bundling.jpg", "/Akuntansi/Bundling 2.jpg", "/Akuntansi/Bundling 3.jpg"];
         } else if (rawRow.id === 1 || rawRow.slug === "logika-akuntansi") {
-          promo = ["/Akuntansi/Logika Akuntansi.png", "/Akuntansi/Logika Akuntansi (2).png"];
+          promo = ["/Akuntansi/Logika Akuntansi.jpg", "/Akuntansi/Logika Akuntansi 2.jpg"];
         } else if (rawRow.id === 3 || rawRow.slug === "full-accounting") {
-          promo = ["/Akuntansi/Full Accounting.png", "/Akuntansi/Full Accounting (2).png"];
+          promo = ["/Akuntansi/Full Accounting.jpg", "/Akuntansi/Full Accounting 2.jpg"];
         } else if (rawRow.id === 4 || rawRow.slug === "gudang-akuntansi") {
-          promo = ["/Akuntansi/Gudang Soal.png", "/Akuntansi/Gudang Soal (2).png"];
+          promo = ["/Akuntansi/Gudang Soal.jpg", "/Akuntansi/Gudang Soal 2.jpg"];
         } else {
           promo = [];
         }

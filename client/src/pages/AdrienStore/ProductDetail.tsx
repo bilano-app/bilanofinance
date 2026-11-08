@@ -308,45 +308,45 @@ export default function ProductDetail() {
   };
 
   // Pemetaan resmi gambar preview contoh halaman per buku
-  // Slide 1: Cover Mockup, Slide 2 dst: Contoh halaman buku asli
+  // Slide 1: Cover Mockup, Slide 2 dst: Contoh halaman buku asli (.jpg)
   const BOOK_PREVIEW_MAP: Record<string, string[]> = {
     // 1. Paket Bundling 3 Buku (Bundling, Bundling 2, Bundling 3)
     "paket-bundling-3-buku": [
-      "/Akuntansi/Bundling.png",
-      "/Akuntansi/Bundling (2).png",
-      "/Akuntansi/Bundling (3).png"
+      "/Akuntansi/Bundling.jpg",
+      "/Akuntansi/Bundling 2.jpg",
+      "/Akuntansi/Bundling 3.jpg"
     ],
     "2": [
-      "/Akuntansi/Bundling.png",
-      "/Akuntansi/Bundling (2).png",
-      "/Akuntansi/Bundling (3).png"
+      "/Akuntansi/Bundling.jpg",
+      "/Akuntansi/Bundling 2.jpg",
+      "/Akuntansi/Bundling 3.jpg"
     ],
     // 2. Logika Akuntansi (Logika Akuntansi, Logika Akuntansi 2)
     "logika-akuntansi": [
-      "/Akuntansi/Logika Akuntansi.png",
-      "/Akuntansi/Logika Akuntansi (2).png"
+      "/Akuntansi/Logika Akuntansi.jpg",
+      "/Akuntansi/Logika Akuntansi 2.jpg"
     ],
     "1": [
-      "/Akuntansi/Logika Akuntansi.png",
-      "/Akuntansi/Logika Akuntansi (2).png"
+      "/Akuntansi/Logika Akuntansi.jpg",
+      "/Akuntansi/Logika Akuntansi 2.jpg"
     ],
     // 3. Full Accounting / Akuntansi Lengkap (Full Accounting, Full Accounting 2)
     "full-accounting": [
-      "/Akuntansi/Full Accounting.png",
-      "/Akuntansi/Full Accounting (2).png"
+      "/Akuntansi/Full Accounting.jpg",
+      "/Akuntansi/Full Accounting 2.jpg"
     ],
     "3": [
-      "/Akuntansi/Full Accounting.png",
-      "/Akuntansi/Full Accounting (2).png"
+      "/Akuntansi/Full Accounting.jpg",
+      "/Akuntansi/Full Accounting 2.jpg"
     ],
     // 4. Gudang Soal Akuntansi (Gudang Soal, Gudang Soal 2)
     "gudang-akuntansi": [
-      "/Akuntansi/Gudang Soal.png",
-      "/Akuntansi/Gudang Soal (2).png"
+      "/Akuntansi/Gudang Soal.jpg",
+      "/Akuntansi/Gudang Soal 2.jpg"
     ],
     "4": [
-      "/Akuntansi/Gudang Soal.png",
-      "/Akuntansi/Gudang Soal (2).png"
+      "/Akuntansi/Gudang Soal.jpg",
+      "/Akuntansi/Gudang Soal 2.jpg"
     ]
   };
 
@@ -468,7 +468,7 @@ export default function ProductDetail() {
                   className="min-w-full w-full snap-center flex-shrink-0 flex items-center justify-center p-3 sm:p-5 select-none bg-white"
                 >
                   {idx === 0 ? (
-                    // Slide 1: Cover Mockup 3D
+                    // Slide 1: Cover Mockup 3D (Tanpa border/stroke)
                     <img
                       src={src}
                       alt={`${product.title} - Cover`}
@@ -480,13 +480,13 @@ export default function ProductDetail() {
                   ) : (
                     // Slide 2 ke atas: Contoh Halaman E-Book
                     // Ukuran maksimal (tidak over), dasar tetap putih, dan diberikan stroke tipis agar kelihatan sisi kertasnya
-                    <div className="relative flex items-center justify-center w-full max-w-[94%] sm:max-w-[88%] md:max-w-[84%]">
+                    <div className="relative flex items-center justify-center w-full max-w-[95%] sm:max-w-[90%] md:max-w-[86%]">
                       <img
                         src={src}
                         alt={`${product.title} - Contoh Halaman ${idx}`}
                         loading="lazy"
                         decoding="async"
-                        className="max-h-[420px] sm:max-h-[500px] md:max-h-[540px] w-auto max-w-full object-contain border border-slate-300/90 rounded-xs shadow-[0_4px_16px_rgba(0,0,0,0.08)] transition-transform duration-300 pointer-events-none bg-white"
+                        className="max-h-[430px] sm:max-h-[510px] md:max-h-[550px] w-auto max-w-full object-contain border border-slate-300 rounded-xs shadow-[0_4px_16px_rgba(0,0,0,0.08)] transition-transform duration-300 pointer-events-none bg-white"
                         draggable={false}
                       />
                     </div>

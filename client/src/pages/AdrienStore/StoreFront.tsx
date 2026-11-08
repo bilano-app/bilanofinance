@@ -42,9 +42,9 @@ const DEFAULT_PRODUCTS: Product[] = [
     category: "SUPER HEMAT",
     cover_url: "/Akuntansi/Paket_Bundling_3_E-Book.webp",
     promo_images: [
-      "/Akuntansi/Bundling.png",
-      "/Akuntansi/Bundling (2).png",
-      "/Akuntansi/Bundling (3).png"
+      "/Akuntansi/Bundling.jpg",
+      "/Akuntansi/Bundling 2.jpg",
+      "/Akuntansi/Bundling 3.jpg"
     ],
     regular_price: 205000,
     sale_price: 82000,
@@ -69,8 +69,8 @@ const DEFAULT_PRODUCTS: Product[] = [
     category: "BEST SELLER",
     cover_url: "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp",
     promo_images: [
-      "/Akuntansi/Logika Akuntansi.png",
-      "/Akuntansi/Logika Akuntansi (2).png"
+      "/Akuntansi/Logika Akuntansi.jpg",
+      "/Akuntansi/Logika Akuntansi 2.jpg"
     ],
     regular_price: 72000,
     sale_price: 46000,
@@ -95,8 +95,8 @@ const DEFAULT_PRODUCTS: Product[] = [
     category: "PRAKTIS & LENGKAP",
     cover_url: "/Akuntansi/Mockup_Buku_Full_Accounting_Tebal.webp",
     promo_images: [
-      "/Akuntansi/Full Accounting.png",
-      "/Akuntansi/Full Accounting (2).png"
+      "/Akuntansi/Full Accounting.jpg",
+      "/Akuntansi/Full Accounting 2.jpg"
     ],
     regular_price: 95000,
     sale_price: 75000,
@@ -120,8 +120,8 @@ const DEFAULT_PRODUCTS: Product[] = [
     category: "BANK SOAL",
     cover_url: "/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp",
     promo_images: [
-      "/Akuntansi/Gudang Soal.png",
-      "/Akuntansi/Gudang Soal (2).png"
+      "/Akuntansi/Gudang Soal.jpg",
+      "/Akuntansi/Gudang Soal 2.jpg"
     ],
     regular_price: 38000,
     sale_price: 26000,
