@@ -539,9 +539,9 @@ export default function StoreFront() {
                         </div>
 
                         {/* Gambar Landscape di Bawah Judul */}
-                        <div className="w-full px-4 sm:px-8 py-2 flex items-center justify-center relative">
+                        <div className="w-full px-2 sm:px-6 py-2 flex items-center justify-center relative">
                           <div
-                            className="relative group cursor-pointer w-full max-w-[480px] sm:max-w-[560px] flex items-center justify-center py-2"
+                            className="relative group cursor-pointer w-full max-w-[520px] sm:max-w-[620px] flex items-center justify-center py-2"
                             onClick={() => {
                               trackEvent("PRODUCT_CLICK", product.id, product.title);
                               setLocation(`/adrienfandra/p/${product.slug || product.id}`);
@@ -552,7 +552,7 @@ export default function StoreFront() {
                               alt={product.title}
                               loading={idx === 0 ? "eager" : "lazy"}
                               decoding="async"
-                              className="w-full h-auto max-h-[240px] sm:max-h-[300px] object-contain mix-blend-multiply transition-transform duration-300 group-hover:scale-102"
+                              className="w-full h-auto max-h-[260px] sm:max-h-[320px] object-contain scale-[1.03] group-hover:scale-105 mix-blend-multiply transition-transform duration-300"
                             />
                             {discountPercent > 0 && (
                               <div className="absolute top-1 right-2 sm:top-2 sm:right-4 bg-rose-600 text-white text-[11px] sm:text-xs font-black px-3 py-1 rounded-full shadow-sm">

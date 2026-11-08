@@ -459,37 +459,83 @@ export default function ProductDetail() {
             <div
               ref={scrollRef}
               onScroll={handleScroll}
-              className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none scroll-smooth items-center min-h-[380px] sm:min-h-[460px] md:min-h-[520px] w-full"
+              className={`flex overflow-x-auto snap-x snap-mandatory scrollbar-none scroll-smooth items-center w-full ${
+                isBundling
+                  ? "min-h-[340px] sm:min-h-[420px] md:min-h-[480px]"
+                  : "min-h-[380px] sm:min-h-[460px] md:min-h-[520px]"
+              }`}
               style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}
             >
               {slides.map((src, idx) => (
                 <div
                   key={idx}
-                  className="min-w-full w-full snap-center flex-shrink-0 flex items-center justify-center p-3 sm:p-5 select-none bg-white"
+                  className={`min-w-full w-full snap-center flex-shrink-0 flex items-center justify-center select-none bg-white ${
+                    isBundling
+                      ? idx === 0
+                        ? "px-1 py-4 sm:px-3 sm:py-6"
+                        : "px-2 py-3 sm:px-4 sm:py-4"
+                      : "p-3 sm:p-5"
+                  }`}
                 >
-                  {idx === 0 ? (
-                    // Slide 1: Cover Mockup 3D (Tanpa border/stroke)
-                    <img
-                      src={src}
-                      alt={`${product.title} - Cover`}
-                      loading="eager"
-                      decoding="async"
-                      className="max-h-[380px] sm:max-h-[460px] md:max-h-[500px] w-auto max-w-full object-contain transition-transform duration-300 pointer-events-none drop-shadow-md"
-                      draggable={false}
-                    />
+                  {isBundling ? (
+                    // =========================================================================
+                    // KHUSUS PAKET BUNDLING:
+                    // Tanpa stroke / border, tanpa drop-shadow (menyatu total dengan latar putih),
+                    // Ukuran diperbesar secara proporsional agar mantap & tidak terpotong.
+                    // =========================================================================
+                    idx === 0 ? (
+                      // Slide 1: Cover Landscape Bundling (Lebih besar, menyatu tanpa stroke/shadow)
+                      <div className="relative flex items-center justify-center w-full max-w-full overflow-visible">
+                        <img
+                          src={src}
+                          alt={`${product.title} - Cover`}
+                          loading="eager"
+                          decoding="async"
+                          className="w-full max-w-full sm:max-w-[96%] md:max-w-[92%] h-auto max-h-[320px] sm:max-h-[390px] md:max-h-[440px] object-contain scale-[1.12] sm:scale-[1.16] md:scale-[1.18] transition-transform duration-300 pointer-events-none mix-blend-multiply border-0 shadow-none drop-shadow-none"
+                          draggable={false}
+                        />
+                      </div>
+                    ) : (
+                      // Slide 2 dst: Bundling Previews (Bundling, Bundling 2, Bundling 3)
+                      // Tanpa border/stroke, tanpa shadow box (menyatu dengan background)
+                      <div className="relative flex items-center justify-center w-full max-w-[98%] sm:max-w-[94%] md:max-w-[90%]">
+                        <img
+                          src={src}
+                          alt={`${product.title} - Contoh Halaman ${idx}`}
+                          loading="lazy"
+                          decoding="async"
+                          className="max-h-[430px] sm:max-h-[500px] md:max-h-[540px] w-auto max-w-full object-contain scale-[1.04] sm:scale-[1.06] transition-transform duration-300 pointer-events-none mix-blend-multiply border-0 shadow-none drop-shadow-none bg-white"
+                          draggable={false}
+                        />
+                      </div>
+                    )
                   ) : (
-                    // Slide 2 ke atas: Contoh Halaman E-Book
-                    // Ukuran maksimal (tidak over), dasar tetap putih, dan diberikan stroke tipis agar kelihatan sisi kertasnya
-                    <div className="relative flex items-center justify-center w-full max-w-[95%] sm:max-w-[90%] md:max-w-[86%]">
+                    // =========================================================================
+                    // E-BOOK SATUAN (Logika Akuntansi, Full Accounting, Gudang Soal):
+                    // Slide 1: Cover Mockup 3D (Tanpa border)
+                    // Slide 2 dst: Contoh Halaman E-Book dengan stroke tipis agar sisi kertas terlihat
+                    // =========================================================================
+                    idx === 0 ? (
                       <img
                         src={src}
-                        alt={`${product.title} - Contoh Halaman ${idx}`}
-                        loading="lazy"
+                        alt={`${product.title} - Cover`}
+                        loading="eager"
                         decoding="async"
-                        className="max-h-[430px] sm:max-h-[510px] md:max-h-[550px] w-auto max-w-full object-contain border border-slate-300 rounded-xs shadow-[0_4px_16px_rgba(0,0,0,0.08)] transition-transform duration-300 pointer-events-none bg-white"
+                        className="max-h-[380px] sm:max-h-[460px] md:max-h-[500px] w-auto max-w-full object-contain transition-transform duration-300 pointer-events-none drop-shadow-md"
                         draggable={false}
                       />
-                    </div>
+                    ) : (
+                      <div className="relative flex items-center justify-center w-full max-w-[95%] sm:max-w-[90%] md:max-w-[86%]">
+                        <img
+                          src={src}
+                          alt={`${product.title} - Contoh Halaman ${idx}`}
+                          loading="lazy"
+                          decoding="async"
+                          className="max-h-[430px] sm:max-h-[510px] md:max-h-[550px] w-auto max-w-full object-contain border border-slate-300 rounded-xs shadow-[0_4px_16px_rgba(0,0,0,0.08)] transition-transform duration-300 pointer-events-none bg-white"
+                          draggable={false}
+                        />
+                      </div>
+                    )
                   )}
                 </div>
               ))}
@@ -561,7 +607,7 @@ export default function ProductDetail() {
                   <img
                     src={src}
                     alt={`Preview mini ${idx + 1}`}
-                    className={`w-full h-full object-contain ${idx > 0 ? "border border-slate-300/80 rounded-2xs" : ""}`}
+                    className={`w-full h-full object-contain ${!isBundling && idx > 0 ? "border border-slate-300/80 rounded-2xs" : ""}`}
                   />
                 </button>
               ))}
