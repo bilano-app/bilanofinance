@@ -21,8 +21,24 @@ export function formatRp(val: number) {
 }
 
 /**
+ * Format numbers for display in Indonesian format without losing fraction digits.
+ * e.g. 59.67 -> "59,67", 1000 -> "1.000", 1000.5 -> "1.000,5", 0.00005 -> "0,00005"
+ */
+export function formatDisplayNumber(val: number, maxDecimals: number = 8): string {
+  if (isNaN(val) || val === null || val === undefined) return "0";
+  return val.toLocaleString("id-ID", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: maxDecimals,
+  });
+}
+
+/**
  * Parses numbers with commas or dots correctly.
- * Supports Indonesian format (1.000,50), US format (1,000.50), decimals with comma (0,5 / 12,5), decimals with dot (0.5 / 12.5), etc.
+ * Supports Indonesian format (1.000,50), US format (1,000.50), decimals with comma (0,5 / 12,5 / 59,67), decimals with dot (0.5 / 12.5 / 59.67), etc.
+ * Guarantees that in Indonesian context:
+ * - "1.000" is read as 1000 (NOT 1,0)
+ * - "59,67" is read as 59.67 (NOT 5967)
+ * - "1.000,5" is read as 1000.5
  */
 export function parseFormattedNumber(val: string | number | null | undefined): number {
   if (val === null || val === undefined || val === '') return 0;
@@ -46,33 +62,32 @@ export function parseFormattedNumber(val: string | number | null | undefined): n
     }
   }
 
-  // Case 2: Only comma , is present (e.g. "0,5" or "12,50" or "500,000" or "1,000,000")
+  // Case 2: Only comma , is present (e.g. "0,5" or "12,50" or "59,67" or "5,967" or "1,000,000")
   if (trimmed.includes(',')) {
     const commaCount = (trimmed.match(/,/g) || []).length;
     if (commaCount > 1) {
+      // Multiple commas e.g. "1,000,000" (US format)
       return parseFloat(trimmed.replace(/,/g, '')) || 0;
     }
-    const parts = trimmed.split(',');
-    const intPart = parts[0];
-    const decPart = parts[1] || '';
-    if (intPart === '0' || intPart === '-0' || decPart.length !== 3) {
-      return parseFloat(trimmed.replace(/,/g, '.')) || 0;
-    }
-    return parseFloat(trimmed.replace(/,/g, '')) || 0;
+    // Single comma: In Indonesian convention, single comma is ALWAYS decimal separator!
+    return parseFloat(trimmed.replace(/,/g, '.')) || 0;
   }
 
-  // Case 3: Only dot . is present (e.g. "500.000", "300.000", "50.000", "1.000", "1.000.000", "0.5", "12.50")
+  // Case 3: Only dot . is present (e.g. "500.000", "300.000", "50.000", "1.000", "1.000.000", "0.5", "12.50", "59.67")
   if (trimmed.includes('.')) {
     const dotCount = (trimmed.match(/\./g) || []).length;
     if (dotCount > 1) {
+      // Multiple dots e.g. "1.000.000" -> thousand separators
       return parseFloat(trimmed.replace(/\./g, '')) || 0;
     }
     const parts = trimmed.split('.');
     const intPart = parts[0];
     const decPart = parts[1] || '';
+    // If integer part is 0 (e.g. "0.5", "0.005") or decimal part is NOT exactly 3 digits (e.g. "59.67", "1.5") -> decimal
     if (intPart === '0' || intPart === '-0' || decPart.length !== 3) {
       return parseFloat(trimmed) || 0;
     }
+    // Exactly 3 digits after single dot (e.g. "1.000", "9.500") -> Indonesian thousand separator
     return parseFloat(trimmed.replace(/\./g, '')) || 0;
   }
 
@@ -80,80 +95,93 @@ export function parseFormattedNumber(val: string | number | null | undefined): n
 }
 
 /**
- * Format decimal inputs (such as Stock Lots, Crypto Units, Gold Grams, Prices).
- * Allows typing numbers with comma or period as decimal separator without stripping it.
+ * Format decimal inputs (such as Stock Lots, Crypto Units, Gold Grams, Prices, Investment Nominal).
+ * - Displays dot (.) for thousands: e.g. typing 1000 immediately formats as 1.000 (bukan 1,0)
+ * - Typing either comma (,) OR period (.) is read & displayed as comma (,) for decimals
+ * - Preserves decimals cleanly: e.g. 59,67 or 1.000,5 or 0,0005
  */
-export function formatDecimalInput(val: string): string {
-  if (!val) return '';
+export function formatDecimalInput(val: string | number | null | undefined): string {
+  if (val === null || val === undefined || val === '') return '';
   
-  // Allow only digits, comma, and period
-  let clean = val.replace(/[^0-9.,]/g, '');
-  
-  // Find first separator (, or .)
-  const firstSepIndex = clean.search(/[,.]/);
-  if (firstSepIndex !== -1) {
-    const sep = clean[firstSepIndex];
-    let intPart = clean.slice(0, firstSepIndex).replace(/[,.]/g, '');
-    const decPart = clean.slice(firstSepIndex + 1).replace(/[,.]/g, '');
-    
-    // Clean leading zeros from integer part, but preserve "0"
-    if (intPart.length > 1) {
-      intPart = intPart.replace(/^0+/, '') || '0';
+  let clean = val.toString().trim();
+  clean = clean.replace(/[^0-9.,]/g, '');
+  if (!clean) return '';
+
+  // If user types ',' or '.' as first character
+  if (clean === ',' || clean === '.') return '0,';
+  if (clean.startsWith(',') || clean.startsWith('.')) {
+    clean = '0,' + clean.slice(1).replace(/[,.]/g, '');
+  }
+
+  // Case 1: Comma already exists
+  if (clean.includes(',')) {
+    const parts = clean.split(',');
+    let intRaw = parts[0].replace(/\./g, '').replace(/\D/g, '');
+    if (intRaw.length > 1) intRaw = intRaw.replace(/^0+/, '') || '0';
+    if (!intRaw) intRaw = '0';
+    const formattedInt = intRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const decRaw = parts.slice(1).join('').replace(/[^0-9]/g, '');
+    return clean.endsWith(',') && decRaw === ''
+      ? formattedInt + ','
+      : formattedInt + ',' + decRaw;
+  }
+
+  // Case 2: User just typed '.' at the end -> convert to ',' (Indonesian decimal)
+  if (clean.endsWith('.')) {
+    let intRaw = clean.slice(0, -1).replace(/\./g, '').replace(/\D/g, '');
+    if (intRaw.length > 1) intRaw = intRaw.replace(/^0+/, '') || '0';
+    if (!intRaw) intRaw = '0';
+    const formattedInt = intRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return formattedInt + ',';
+  }
+
+  // Case 3: Dot in middle
+  if (clean.includes('.')) {
+    const dotParts = clean.split('.');
+    if (dotParts.length > 2) {
+      let intRaw = clean.replace(/\./g, '');
+      if (intRaw.length > 1) intRaw = intRaw.replace(/^0+/, '') || '0';
+      return intRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     }
-    return `${intPart}${sep}${decPart}`;
+
+    const [p0, p1] = dotParts;
+    if (p0 === '0') {
+      return '0,' + p1;
+    }
+    // Backspacing a thousand separator like '1.00'
+    if (p1 === '0' || p1 === '00') {
+      let intRaw = clean.replace(/\./g, '');
+      if (intRaw.length > 1) intRaw = intRaw.replace(/^0+/, '') || '0';
+      return intRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+    // 3 digits after dot, e.g. '1.000' -> Indonesian thousand (1000)
+    if (p1.length === 3) {
+      let intRaw = clean.replace(/\./g, '');
+      if (intRaw.length > 1) intRaw = intRaw.replace(/^0+/, '') || '0';
+      return intRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+
+    // Decimal with dot from paste/English (e.g. '59.67') -> convert to decimal comma
+    let intRaw = p0.replace(/\D/g, '');
+    if (intRaw.length > 1) intRaw = intRaw.replace(/^0+/, '') || '0';
+    if (!intRaw) intRaw = '0';
+    const formattedInt = intRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return formattedInt + ',' + p1;
   }
-  
-  // Integer only
-  if (clean.length > 1) {
-    clean = clean.replace(/^0+/, '');
-    if (!clean) clean = '0';
-  }
-  return clean;
+
+  // Case 4: Plain integer -> format with thousand dots
+  let intRaw = clean.replace(/\D/g, '');
+  if (intRaw.length > 1) intRaw = intRaw.replace(/^0+/, '') || '0';
+  if (!intRaw) return '';
+  return intRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
 /**
  * Format currency / nominal inputs with thousands separators while preserving decimals.
  * e.g., typing "12,50" keeps "12,50", typing "1000000" formats as "1.000.000", typing "1000000,50" formats as "1.000.000,50".
  */
-export function formatCurrencyInput(val: string): string {
-  if (!val) return '';
-  
-  // Allow only digits, comma, and period
-  let clean = val.replace(/[^0-9.,]/g, '');
-  
-  // If comma is present (or typed):
-  if (clean.includes(',')) {
-    const parts = clean.split(',');
-    let intPart = parts[0].replace(/\./g, '').replace(/\D/g, '');
-    if (intPart.length > 1) intPart = intPart.replace(/^0+/, '') || '0';
-    const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    const decPart = parts.slice(1).join('').replace(/[^0-9]/g, '');
-    return `${formattedInt},${decPart}`;
-  }
-  
-  // If user typed dot at the end, convert to comma for intuitive Indonesian typing
-  if (clean.endsWith('.')) {
-    const intPart = clean.slice(0, -1).replace(/\./g, '').replace(/\D/g, '');
-    const formattedInt = (intPart.length > 1 ? intPart.replace(/^0+/, '') || '0' : intPart).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    return `${formattedInt},`;
-  }
-  
-  // If single dot in middle with decimal intention (e.g. "0.5" or "12.50" not ending in 3 digits or starting with 0):
-  const dotParts = clean.split('.');
-  if (dotParts.length === 2 && (dotParts[0] === '0' || (dotParts[1].length !== 3 && dotParts[1].length <= 2))) {
-    let intPart = dotParts[0].replace(/\D/g, '');
-    if (intPart.length > 1) intPart = intPart.replace(/^0+/, '') || '0';
-    const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    const decPart = dotParts[1].replace(/\D/g, '');
-    return `${formattedInt},${decPart}`;
-  }
-  
-  // Standard integer with thousand dots
-  let intOnly = clean.replace(/\./g, '').replace(/\D/g, '');
-  if (intOnly.length > 1) {
-    intOnly = intOnly.replace(/^0+/, '') || '0';
-  }
-  return intOnly.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+export function formatCurrencyInput(val: string | number | null | undefined): string {
+  return formatDecimalInput(val);
 }
 
 /**

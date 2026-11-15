@@ -14,7 +14,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { trackEvent } from "@/lib/tracking";
 import { TrialFeatureNotice } from "@/components/TrialFeatureNotice";
-import { formatDecimalInput, parseFormattedNumber, formatRp } from "@/lib/utils";
+import { formatDecimalInput, parseFormattedNumber, formatRp, formatDisplayNumber } from "@/lib/utils";
 
 export type AssetType = 'saham' | 'reksadana' | 'kripto' | 'emas' | 'p2p' | 'properti' | 'obligasi' | 'bisnis';
 
@@ -54,7 +54,7 @@ export const getAssetSpec = (category: AssetType, currency: string): AssetSpec =
                     pricePlaceholder: "9500",
                     multiplier: 100,
                     formatFormula: (qty, price) => ({
-                        formula: `${qty.toLocaleString('id-ID')} Lot × 100 Lembar × Rp ${price.toLocaleString('id-ID')} = Rp ${(qty * 100 * price).toLocaleString('id-ID')}`
+                        formula: `${formatDisplayNumber(qty, 8)} Lot × 100 Lembar × Rp ${formatDisplayNumber(price, 4)} = Rp ${formatDisplayNumber(qty * 100 * price, 2)}`
                     })
                 };
             } else {
@@ -70,7 +70,7 @@ export const getAssetSpec = (category: AssetType, currency: string): AssetSpec =
                     pricePlaceholder: "180.50",
                     multiplier: 1,
                     formatFormula: (qty, price, c, rate) => ({
-                        formula: `${qty.toLocaleString('en-US')} Shares × ${c} ${price.toLocaleString('en-US')} = ${c} ${(qty * price).toLocaleString('en-US')}`,
+                        formula: `${formatDisplayNumber(qty, 8)} Shares × ${c} ${formatDisplayNumber(price, 4)} = ${c} ${formatDisplayNumber(qty * price, 4)}`,
                         subFormula: `Setara Rp ${Math.round(qty * price * rate).toLocaleString('id-ID')} (@ Kurs Rp ${Math.round(rate).toLocaleString('id-ID')}/${c})`
                     })
                 };
@@ -78,7 +78,7 @@ export const getAssetSpec = (category: AssetType, currency: string): AssetSpec =
         case 'emas':
             return {
                 unitLabel: "Jumlah Berat (Gram / gr)",
-                unitHint: "Dalam gram murni (bisa desimal cth: 0.5 / 1 / 10 gr)",
+                unitHint: "Dalam gram murni (bisa desimal cth: 0.5 / 1 / 10 / 59.67 gr)",
                 unitShort: "Gram",
                 priceLabel: `Harga per Gram (${curr})`,
                 priceShort: "per gram",
@@ -88,14 +88,14 @@ export const getAssetSpec = (category: AssetType, currency: string): AssetSpec =
                 pricePlaceholder: isIDR ? "1450000" : "85",
                 multiplier: 1,
                 formatFormula: (qty, price, c, rate) => ({
-                    formula: `${qty.toLocaleString('id-ID')} Gram × ${c === 'IDR' ? 'Rp ' : c + ' '}${price.toLocaleString(isIDR ? 'id-ID' : 'en-US')} = ${c === 'IDR' ? 'Rp ' : c + ' '}${(qty * price).toLocaleString(isIDR ? 'id-ID' : 'en-US')}`,
+                    formula: `${formatDisplayNumber(qty, 8)} Gram × ${c === 'IDR' ? 'Rp ' : c + ' '}${formatDisplayNumber(price, 4)} = ${c === 'IDR' ? 'Rp ' : c + ' '}${formatDisplayNumber(qty * price, 4)}`,
                     subFormula: !isIDR ? `Setara Rp ${Math.round(qty * price * rate).toLocaleString('id-ID')} (@ Kurs Rp ${Math.round(rate).toLocaleString('id-ID')})` : undefined
                 })
             };
         case 'reksadana':
             return {
                 unitLabel: "Jumlah Unit Penyertaan (UP)",
-                unitHint: "Unit Penyertaan (bisa desimal hingga 4 angka)",
+                unitHint: "Unit Penyertaan (bisa desimal presisi tinggi)",
                 unitShort: "UP",
                 priceLabel: `NAB per Unit UP (${curr})`,
                 priceShort: "per UP",
@@ -105,7 +105,7 @@ export const getAssetSpec = (category: AssetType, currency: string): AssetSpec =
                 pricePlaceholder: isIDR ? "1500" : "1.25",
                 multiplier: 1,
                 formatFormula: (qty, price, c, rate) => ({
-                    formula: `${qty.toLocaleString('id-ID')} UP × ${c === 'IDR' ? 'Rp ' : c + ' '}${price.toLocaleString(isIDR ? 'id-ID' : 'en-US')} = ${c === 'IDR' ? 'Rp ' : c + ' '}${(qty * price).toLocaleString(isIDR ? 'id-ID' : 'en-US')}`,
+                    formula: `${formatDisplayNumber(qty, 8)} UP × ${c === 'IDR' ? 'Rp ' : c + ' '}${formatDisplayNumber(price, 4)} = ${c === 'IDR' ? 'Rp ' : c + ' '}${formatDisplayNumber(qty * price, 4)}`,
                     subFormula: !isIDR ? `Setara Rp ${Math.round(qty * price * rate).toLocaleString('id-ID')} (@ Kurs Rp ${Math.round(rate).toLocaleString('id-ID')})` : undefined
                 })
             };
@@ -122,7 +122,7 @@ export const getAssetSpec = (category: AssetType, currency: string): AssetSpec =
                 pricePlaceholder: isIDR ? "1000000000" : "65000",
                 multiplier: 1,
                 formatFormula: (qty, price, c, rate) => ({
-                    formula: `${qty.toLocaleString('en-US')} Koin × ${c === 'IDR' ? 'Rp ' : c + ' '}${price.toLocaleString(isIDR ? 'id-ID' : 'en-US')} = ${c === 'IDR' ? 'Rp ' : c + ' '}${(qty * price).toLocaleString(isIDR ? 'id-ID' : 'en-US')}`,
+                    formula: `${formatDisplayNumber(qty, 8)} Koin × ${c === 'IDR' ? 'Rp ' : c + ' '}${formatDisplayNumber(price, 4)} = ${c === 'IDR' ? 'Rp ' : c + ' '}${formatDisplayNumber(qty * price, 4)}`,
                     subFormula: !isIDR ? `Setara Rp ${Math.round(qty * price * rate).toLocaleString('id-ID')} (@ Kurs Rp ${Math.round(rate).toLocaleString('id-ID')})` : undefined
                 })
             };
@@ -139,7 +139,7 @@ export const getAssetSpec = (category: AssetType, currency: string): AssetSpec =
                 pricePlaceholder: isIDR ? "1000000" : "1000",
                 multiplier: 1,
                 formatFormula: (qty, price, c, rate) => ({
-                    formula: `${qty.toLocaleString('id-ID')} Unit × ${c === 'IDR' ? 'Rp ' : c + ' '}${price.toLocaleString(isIDR ? 'id-ID' : 'en-US')} = ${c === 'IDR' ? 'Rp ' : c + ' '}${(qty * price).toLocaleString(isIDR ? 'id-ID' : 'en-US')}`,
+                    formula: `${formatDisplayNumber(qty, 8)} Unit × ${c === 'IDR' ? 'Rp ' : c + ' '}${formatDisplayNumber(price, 4)} = ${c === 'IDR' ? 'Rp ' : c + ' '}${formatDisplayNumber(qty * price, 4)}`,
                     subFormula: !isIDR ? `Setara Rp ${Math.round(qty * price * rate).toLocaleString('id-ID')} (@ Kurs Rp ${Math.round(rate).toLocaleString('id-ID')})` : undefined
                 })
             };
@@ -156,7 +156,7 @@ export const getAssetSpec = (category: AssetType, currency: string): AssetSpec =
                 pricePlaceholder: isIDR ? "1000000" : "100",
                 multiplier: 1,
                 formatFormula: (qty, price, c, rate) => ({
-                    formula: `${qty.toLocaleString('id-ID')} Paket × ${c === 'IDR' ? 'Rp ' : c + ' '}${price.toLocaleString(isIDR ? 'id-ID' : 'en-US')} = ${c === 'IDR' ? 'Rp ' : c + ' '}${(qty * price).toLocaleString(isIDR ? 'id-ID' : 'en-US')}`,
+                    formula: `${formatDisplayNumber(qty, 8)} Paket × ${c === 'IDR' ? 'Rp ' : c + ' '}${formatDisplayNumber(price, 4)} = ${c === 'IDR' ? 'Rp ' : c + ' '}${formatDisplayNumber(qty * price, 4)}`,
                     subFormula: !isIDR ? `Setara Rp ${Math.round(qty * price * rate).toLocaleString('id-ID')} (@ Kurs Rp ${Math.round(rate).toLocaleString('id-ID')})` : undefined
                 })
             };
@@ -173,7 +173,7 @@ export const getAssetSpec = (category: AssetType, currency: string): AssetSpec =
                 pricePlaceholder: isIDR ? "50000000" : "5000",
                 multiplier: 1,
                 formatFormula: (qty, price, c, rate) => ({
-                    formula: `${qty.toLocaleString('id-ID')} Unit × ${c === 'IDR' ? 'Rp ' : c + ' '}${price.toLocaleString(isIDR ? 'id-ID' : 'en-US')} = ${c === 'IDR' ? 'Rp ' : c + ' '}${(qty * price).toLocaleString(isIDR ? 'id-ID' : 'en-US')}`,
+                    formula: `${formatDisplayNumber(qty, 8)} Unit × ${c === 'IDR' ? 'Rp ' : c + ' '}${formatDisplayNumber(price, 4)} = ${c === 'IDR' ? 'Rp ' : c + ' '}${formatDisplayNumber(qty * price, 4)}`,
                     subFormula: !isIDR ? `Setara Rp ${Math.round(qty * price * rate).toLocaleString('id-ID')} (@ Kurs Rp ${Math.round(rate).toLocaleString('id-ID')})` : undefined
                 })
             };
@@ -190,7 +190,7 @@ export const getAssetSpec = (category: AssetType, currency: string): AssetSpec =
                 pricePlaceholder: isIDR ? "10000000" : "1000",
                 multiplier: 1,
                 formatFormula: (qty, price, c, rate) => ({
-                    formula: `${qty.toLocaleString('id-ID')} Slot × ${c === 'IDR' ? 'Rp ' : c + ' '}${price.toLocaleString(isIDR ? 'id-ID' : 'en-US')} = ${c === 'IDR' ? 'Rp ' : c + ' '}${(qty * price).toLocaleString(isIDR ? 'id-ID' : 'en-US')}`,
+                    formula: `${formatDisplayNumber(qty, 8)} Slot × ${c === 'IDR' ? 'Rp ' : c + ' '}${formatDisplayNumber(price, 4)} = ${c === 'IDR' ? 'Rp ' : c + ' '}${formatDisplayNumber(qty * price, 4)}`,
                     subFormula: !isIDR ? `Setara Rp ${Math.round(qty * price * rate).toLocaleString('id-ID')} (@ Kurs Rp ${Math.round(rate).toLocaleString('id-ID')})` : undefined
                 })
             };
@@ -207,7 +207,7 @@ export const getAssetSpec = (category: AssetType, currency: string): AssetSpec =
                 pricePlaceholder: "1000",
                 multiplier: 1,
                 formatFormula: (qty, price, c) => ({
-                    formula: `${qty} × ${c} ${price} = ${c} ${qty * price}`
+                    formula: `${formatDisplayNumber(qty, 8)} × ${c} ${formatDisplayNumber(price, 4)} = ${c} ${formatDisplayNumber(qty * price, 4)}`
                 })
             };
     }
@@ -423,7 +423,20 @@ export default function Investment() {
           if (inputCurrency !== 'IDR' && totalCostNative > availableForex) {
               toast({
                   title: `Saldo Valas ${inputCurrency} Tidak Cukup`,
-                  description: `Total pembelian (${inputCurrency} ${totalCostNative.toLocaleString('en-US')}) melebihi Saldo Valas ${inputCurrency} Anda (${inputCurrency} ${availableForex.toLocaleString('en-US')}). Silakan top up di menu Valas.`,
+                  description: `Total pembelian (${inputCurrency} ${formatDisplayNumber(totalCostNative, 4)}) melebihi Saldo Valas ${inputCurrency} Anda (${inputCurrency} ${formatDisplayNumber(availableForex, 4)}). Silakan top up di menu Valas.`,
+                  variant: "destructive"
+              });
+              return;
+          }
+      }
+
+      if (txType === 'SELL') {
+          const ownedItem = filteredItems.find(p => p.symbol === selectedSellSymbol);
+          const ownedQty = ownedItem ? Number(ownedItem.quantity) || 0 : 0;
+          if (qty > ownedQty) {
+              toast({
+                  title: "Jumlah Penjualan Melebihi Kepemilikan",
+                  description: `Jumlah yang ingin dijual (${formatDisplayNumber(qty, 8)}) melebihi kepemilikan Anda (${formatDisplayNumber(ownedQty, 8)} ${currentSpec?.unitShort || 'Unit'}).`,
                   variant: "destructive"
               });
               return;
@@ -505,6 +518,19 @@ export default function Investment() {
       if (txType === 'SELL' && !selectedSellSymbol) {
           toast({ title: "Pilih Aset Yang Dijual", description: "Pilih aset dari portofolio Anda.", variant: "destructive" });
           return;
+      }
+      if (txType === 'SELL') {
+          const qty = parseNum(inputQty);
+          const ownedItem = filteredItems.find(p => p.symbol === selectedSellSymbol);
+          const ownedQty = ownedItem ? Number(ownedItem.quantity) || 0 : 0;
+          if (qty > ownedQty) {
+              toast({
+                  title: "Jumlah Penjualan Melebihi Kepemilikan",
+                  description: `Jumlah yang ingin dijual (${formatDisplayNumber(qty, 8)}) melebihi kepemilikan Anda (${formatDisplayNumber(ownedQty, 8)} ${currentSpec?.unitShort || 'Unit'}).`,
+                  variant: "destructive"
+              });
+              return;
+          }
       }
 
       const targetCurrency = txType === 'SELL'
@@ -625,7 +651,7 @@ export default function Investment() {
                               const itemSpec = getAssetSpec(activeCategory, itemCurr);
                               return (
                                   <option key={item.symbol} value={item.symbol}>
-                                      {item.symbol} (Sisa: {item.quantity.toLocaleString(itemCurr === 'IDR' ? 'id-ID' : 'en-US')} {itemSpec.unitShort})
+                                      {item.symbol} (Sisa: {formatDisplayNumber(item.quantity, 8)} {itemSpec.unitShort})
                                   </option>
                               );
                           })}
@@ -709,7 +735,7 @@ export default function Investment() {
                           Total Nilai Transaksi ({inputCurrency})
                       </p>
                       <p className="text-2xl font-black text-brand-navy tabular-nums">
-                          {inputCurrency === 'IDR' ? formatRp(totalCostNative) : `${inputCurrency} ${totalCostNative.toLocaleString('en-US')}`}
+                          {inputCurrency === 'IDR' ? formatRp(totalCostNative) : `${inputCurrency} ${formatDisplayNumber(totalCostNative, 4)}`}
                       </p>
                       {inputCurrency !== 'IDR' && (
                           <p className="text-[11px] font-bold text-sky-700 mt-0.5 tabular-nums">
@@ -727,7 +753,7 @@ export default function Investment() {
                           <span>
                               {inputCurrency === 'IDR' 
                                   ? `Saldo Kas Rupiah Anda (${formatRp(fcf)}) tidak cukup untuk pembelian ini.`
-                                  : `Saldo Valas ${inputCurrency} Anda (${inputCurrency} ${availableForex.toLocaleString('en-US')}) tidak cukup (Dibutuhkan: ${inputCurrency} ${totalCostNative.toLocaleString('en-US')}). Sumber dana dipotong langsung dari saldo ${inputCurrency}.`
+                                  : `Saldo Valas ${inputCurrency} Anda (${inputCurrency} ${formatDisplayNumber(availableForex, 4)}) tidak cukup (Dibutuhkan: ${inputCurrency} ${formatDisplayNumber(totalCostNative, 4)}). Sumber dana dipotong langsung dari saldo ${inputCurrency}.`
                               }
                           </span>
                       </div>
@@ -964,14 +990,14 @@ export default function Investment() {
                                 const totalVal = calculateLiveValue(item);
 
                                 // Format quantity & price display
-                                let qtyDisplay = `${item.quantity.toLocaleString(isIDR ? 'id-ID' : 'en-US')} ${itemSpec?.unitShort || 'Unit'}`;
+                                let qtyDisplay = `${formatDisplayNumber(item.quantity, 8)} ${itemSpec?.unitShort || 'Unit'}`;
                                 if (activeCategory === 'saham' && isIDR) {
-                                    qtyDisplay = `${item.quantity.toLocaleString('id-ID')} Lot (${(item.quantity * 100).toLocaleString('id-ID')} Lembar)`;
+                                    qtyDisplay = `${formatDisplayNumber(item.quantity, 8)} Lot (${formatDisplayNumber(item.quantity * 100, 8)} Lembar)`;
                                 }
 
                                 const priceDisplay = isIDR 
-                                    ? `Rp ${Math.round(item.avgPrice).toLocaleString('id-ID')}`
-                                    : `${curr} ${item.avgPrice.toLocaleString('en-US')}`;
+                                    ? `Rp ${formatDisplayNumber(item.avgPrice, 4)}`
+                                    : `${curr} ${formatDisplayNumber(item.avgPrice, 4)}`;
 
                                 return (
                                     <div 
@@ -996,7 +1022,7 @@ export default function Investment() {
                                             </p>
                                             {!isIDR && (
                                                 <p className="text-[9px] text-slate-400 font-medium tabular-nums">
-                                                    {curr} {(item.quantity * item.avgPrice).toLocaleString('en-US')}
+                                                    {curr} {formatDisplayNumber(item.quantity * item.avgPrice, 4)}
                                                 </p>
                                             )}
                                             <span className="text-[9px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200/60 inline-block mt-0.5">

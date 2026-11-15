@@ -83,6 +83,118 @@ interface LapItem {
   };
 }
 
+/**
+ * Deduplikasi transaksi & calon pembeli Adrien Store:
+ * 1. Menghubungkan identitas calon pembeli/pembeli (email, no telepon/WA, atau nama yang sama).
+ * 2. Bagi pelanggan yang SUDAH LUNAS (PAID), riwayat belum bayar (PENDING) otomatis disingkirkan/tidak ditampilkan lagi.
+ * 3. Bagi yang BELUM LUNAS (PENDING), jika ada input ganda (akibat refresh atau reload form), hanya ambil yang TERBARU.
+ * 4. Sinkron dengan jumlah "Menunggu Bayar" (Prospek).
+ */
+function deduplicateAdrienOrders(rawOrders: OrderRecord[]): OrderRecord[] {
+  if (!Array.isArray(rawOrders) || rawOrders.length === 0) return [];
+
+  const normalizeEmail = (email?: string): string => {
+    if (!email) return "";
+    const clean = email.trim().toLowerCase();
+    if (clean === "-" || clean === "none" || clean === "null" || clean === "") return "";
+    return clean;
+  };
+
+  const normalizePhone = (phone?: string): string => {
+    if (!phone) return "";
+    let digits = phone.replace(/[^0-9]/g, "");
+    if (!digits || digits.length < 8) return "";
+    if (digits.startsWith("0")) digits = "62" + digits.substring(1);
+    else if (digits.startsWith("8")) digits = "628" + digits.substring(1);
+    return digits;
+  };
+
+  const normalizeName = (name?: string): string => {
+    if (!name) return "";
+    return name.trim().toLowerCase().replace(/\s+/g, " ");
+  };
+
+  const areSameIdentity = (a: OrderRecord, b: OrderRecord): boolean => {
+    const emailA = normalizeEmail(a.customer_email);
+    const emailB = normalizeEmail(b.customer_email);
+    if (emailA && emailB && emailA === emailB) return true;
+
+    const phoneA = normalizePhone(a.customer_phone);
+    const phoneB = normalizePhone(b.customer_phone);
+    if (phoneA && phoneB && phoneA === phoneB) return true;
+
+    const nameA = normalizeName(a.customer_name);
+    const nameB = normalizeName(b.customer_name);
+    if (nameA && nameB && nameA === nameB) {
+      const emailConflict = Boolean(emailA && emailB && emailA !== emailB);
+      const phoneConflict = Boolean(phoneA && phoneB && phoneA !== phoneB);
+      if (!emailConflict && !phoneConflict) return true;
+    }
+
+    return false;
+  };
+
+  const sorted = [...rawOrders].sort((a, b) => {
+    const timeA = new Date(a.created_at || 0).getTime();
+    const timeB = new Date(b.created_at || 0).getTime();
+    if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) return timeB - timeA;
+    return Number(b.id || 0) - Number(a.id || 0);
+  });
+
+  const parent = sorted.map((_, i) => i);
+  const find = (i: number): number => {
+    if (parent[i] === i) return i;
+    parent[i] = find(parent[i]);
+    return parent[i];
+  };
+  const union = (i: number, j: number) => {
+    const rootI = find(i);
+    const rootJ = find(j);
+    if (rootI !== rootJ) parent[rootI] = rootJ;
+  };
+
+  for (let i = 0; i < sorted.length; i++) {
+    for (let j = i + 1; j < sorted.length; j++) {
+      if (areSameIdentity(sorted[i], sorted[j])) {
+        union(i, j);
+      }
+    }
+  }
+
+  const clusters: Record<number, OrderRecord[]> = {};
+  for (let i = 0; i < sorted.length; i++) {
+    const root = find(i);
+    if (!clusters[root]) clusters[root] = [];
+    clusters[root].push(sorted[i]);
+  }
+
+  const result: OrderRecord[] = [];
+  for (const cluster of Object.values(clusters)) {
+    const paidOrders = cluster.filter((o) => o.payment_status === "PAID");
+    if (paidOrders.length > 0) {
+      const seenProducts = new Set<string>();
+      const dedupedPaid: OrderRecord[] = [];
+      for (const p of paidOrders) {
+        const prodKey = String(p.product_id || p.merchant_order_id || "default");
+        if (!seenProducts.has(prodKey)) {
+          seenProducts.add(prodKey);
+          dedupedPaid.push(p);
+        }
+      }
+      result.push(...dedupedPaid);
+    } else {
+      result.push(cluster[0]);
+    }
+  }
+
+  return result.sort((a, b) => {
+    const timeA = new Date(a.created_at || 0).getTime();
+    const timeB = new Date(b.created_at || 0).getTime();
+    if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) return timeB - timeA;
+    return Number(b.id || 0) - Number(a.id || 0);
+  });
+}
+
 export default function ManagerDashboard() {
   // Auth State
   const [adminEmail, setAdminEmail] = useState<string>("");
@@ -537,10 +649,18 @@ export default function ManagerDashboard() {
       });
       const data = await res.json();
       if (data.success) {
-        setStats(data.stats || {});
+        const cleanOrders = deduplicateAdrienOrders(data.orders || []);
+        const cleanPendingCount = cleanOrders.filter((o) => o.payment_status !== "PAID").length;
+        const cleanPaidCount = cleanOrders.filter((o) => o.payment_status === "PAID").length;
+
+        setStats({
+          ...(data.stats || {}),
+          pendingOrdersCount: cleanPendingCount,
+          paidOrdersCount: cleanPaidCount
+        });
         setAnalytics(data.analytics || {});
         setProducts(data.products || []);
-        setOrders(data.orders || []);
+        setOrders(cleanOrders);
 
         // Sinkronisasi data Lap dari database PostgreSQL (agar HP dan Laptop selalu sama persis)
         if (data.laps && Array.isArray(data.laps)) {

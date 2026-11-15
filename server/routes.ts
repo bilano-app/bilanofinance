@@ -3025,9 +3025,10 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           else if (typeLower === 'properti' || typeLower === 'bisnis') unitLabel = "Porsi";
 
           const txSource = req.body.source || (curr !== 'IDR' ? `Dompet Valas ${curr}` : "Kas Utama");
+          const qtyFormatted = quantity.toLocaleString('id-ID', { maximumFractionDigits: 8 });
           const txDesc = curr === 'IDR'
-              ? `${quantity} ${unitLabel} ${sym} @ Rp ${price.toLocaleString('id-ID')}`
-              : `${quantity} ${unitLabel} ${sym} @ ${curr} ${price.toLocaleString('en-US')} (Dipotong dari ${txSource})`;
+              ? `${qtyFormatted} ${unitLabel} ${sym} @ Rp ${price.toLocaleString('id-ID')}`
+              : `${qtyFormatted} ${unitLabel} ${sym} @ ${curr} ${price.toLocaleString('id-ID', { maximumFractionDigits: 4 })} (Dipotong dari ${txSource})`;
 
           await storage.createTransaction(user!.id, {
               userId: user!.id, 
@@ -3154,9 +3155,10 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           else if (typeLower === 'properti' || typeLower === 'bisnis') unitLabel = "Porsi";
 
           const txSource = curr !== 'IDR' ? `Dompet Valas ${curr}` : (req.body.source || "Kas Utama");
+          const qtyFormatted = quantity.toLocaleString('id-ID', { maximumFractionDigits: 8 });
           const txDesc = curr === 'IDR'
-              ? `${quantity} ${unitLabel} ${sym} @ Rp ${price.toLocaleString('id-ID')}${profitLossText}`
-              : `${quantity} ${unitLabel} ${sym} @ ${curr} ${price.toLocaleString('en-US')}${profitLossText} (Masuk ke Saldo ${curr})`;
+              ? `${qtyFormatted} ${unitLabel} ${sym} @ Rp ${price.toLocaleString('id-ID')}${profitLossText}`
+              : `${qtyFormatted} ${unitLabel} ${sym} @ ${curr} ${price.toLocaleString('id-ID', { maximumFractionDigits: 4 })}${profitLossText} (Masuk ke Saldo ${curr})`;
 
           await storage.createTransaction(user!.id, {
               userId: user!.id, 

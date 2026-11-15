@@ -1789,6 +1789,133 @@ export function setupAdrienStoreRoutes(app: Express) {
     }
   });
 
+  /**
+   * Helper deduplikasi riil untuk Transaksi & Calon Pembeli Adrien Store:
+   * 1. Kelompokkan identitas pesanan berdasarkan:
+   *    - Email pelanggan yang sama (case-insensitive & trimmed)
+   *    - Atau nomor telepon/WA yang sama (setelah normalisasi digit)
+   *    - Atau nama pelanggan yang sama persis (bila tidak ada bentrok email/telepon yang berbeda)
+   * 2. Bagi pelanggan yang SUDAH LUNAS (PAID):
+   *    - Seluruh pesanan PENDING (belum bayar) dari identitas tersebut otomatis diabaikan/dihapus,
+   *      karena terjadi akibat pengguna me-refresh halaman checkout sebelum membayar.
+   *    - Pertahankan pesanan yang sudah lunas (PAID).
+   * 3. Bagi calon pembeli yang belum bayar (PENDING):
+   *    - Jika terdapat duplikasi pengisian form, ambil HANYA pesanan yang TERBARU.
+   * 4. Nilai "Menunggu Bayar" (pendingOrdersCount) dan daftar tabel sinkron 100% tanpa double identitas.
+   */
+  function deduplicateAdrienOrders<T extends Record<string, any>>(rawOrders: T[]): T[] {
+    if (!Array.isArray(rawOrders) || rawOrders.length === 0) return [];
+
+    const normalizeEmail = (email?: any): string => {
+      if (!email || typeof email !== "string") return "";
+      const clean = email.trim().toLowerCase();
+      if (clean === "-" || clean === "none" || clean === "null" || clean === "") return "";
+      return clean;
+    };
+
+    const normalizePhone = (phone?: any): string => {
+      if (!phone) return "";
+      let digits = String(phone).replace(/[^0-9]/g, "");
+      if (!digits || digits.length < 8) return "";
+      if (digits.startsWith("0")) digits = "62" + digits.substring(1);
+      else if (digits.startsWith("8")) digits = "628" + digits.substring(1);
+      return digits;
+    };
+
+    const normalizeName = (name?: any): string => {
+      if (!name || typeof name !== "string") return "";
+      return name.trim().toLowerCase().replace(/\s+/g, " ");
+    };
+
+    const areSameIdentity = (a: T, b: T): boolean => {
+      const emailA = normalizeEmail(a.customer_email);
+      const emailB = normalizeEmail(b.customer_email);
+      if (emailA && emailB && emailA === emailB) return true;
+
+      const phoneA = normalizePhone(a.customer_phone);
+      const phoneB = normalizePhone(b.customer_phone);
+      if (phoneA && phoneB && phoneA === phoneB) return true;
+
+      const nameA = normalizeName(a.customer_name);
+      const nameB = normalizeName(b.customer_name);
+      if (nameA && nameB && nameA === nameB) {
+        // Nama sama dianggap identitas sama selama tidak ada bentrok email atau nomor yang jelas berbeda
+        const emailConflict = Boolean(emailA && emailB && emailA !== emailB);
+        const phoneConflict = Boolean(phoneA && phoneB && phoneA !== phoneB);
+        if (!emailConflict && !phoneConflict) return true;
+      }
+
+      return false;
+    };
+
+    // Urutkan dari yang terbaru (created_at DESC atau id DESC)
+    const sorted = [...rawOrders].sort((a: any, b: any) => {
+      const timeA = new Date(a.created_at || 0).getTime();
+      const timeB = new Date(b.created_at || 0).getTime();
+      if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) return timeB - timeA;
+      return Number(b.id || 0) - Number(a.id || 0);
+    });
+
+    // Disjoint Set Union (DSU) untuk menghubungkan identitas yang berelasi
+    const parent = sorted.map((_, i) => i);
+    const find = (i: number): number => {
+      if (parent[i] === i) return i;
+      parent[i] = find(parent[i]);
+      return parent[i];
+    };
+    const union = (i: number, j: number) => {
+      const rootI = find(i);
+      const rootJ = find(j);
+      if (rootI !== rootJ) parent[rootI] = rootJ;
+    };
+
+    for (let i = 0; i < sorted.length; i++) {
+      for (let j = i + 1; j < sorted.length; j++) {
+        if (areSameIdentity(sorted[i], sorted[j])) {
+          union(i, j);
+        }
+      }
+    }
+
+    const clusters: Record<number, T[]> = {};
+    for (let i = 0; i < sorted.length; i++) {
+      const root = find(i);
+      if (!clusters[root]) clusters[root] = [];
+      clusters[root].push(sorted[i]);
+    }
+
+    const result: T[] = [];
+    for (const cluster of Object.values(clusters)) {
+      const paidOrders = cluster.filter((o: any) => o.payment_status === "PAID");
+      if (paidOrders.length > 0) {
+        // Pelanggan SUDAH LUNAS:
+        // Singkirkan seluruh pesanan PENDING (karena kemungkinan akibat refresh browser sebelum lunas).
+        // Untuk pesanan PAID, pastikan pesanan produk yang unik tetap ada (jika produk persis sama, ambil yang terbaru).
+        const seenProducts = new Set<string>();
+        const dedupedPaid: T[] = [];
+        for (const p of paidOrders) {
+          const prodKey = String(p.product_id || p.merchant_order_id || "default");
+          if (!seenProducts.has(prodKey)) {
+            seenProducts.add(prodKey);
+            dedupedPaid.push(p);
+          }
+        }
+        result.push(...dedupedPaid);
+      } else {
+        // Pelanggan BELUM lunas (semua berstatus PENDING/menunggu):
+        // Ambil yang paling baru (cluster[0] karena sudah terurut terbaru dahulu).
+        result.push(cluster[0]);
+      }
+    }
+
+    return result.sort((a: any, b: any) => {
+      const timeA = new Date(a.created_at || 0).getTime();
+      const timeB = new Date(b.created_at || 0).getTime();
+      if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) return timeB - timeA;
+      return Number(b.id || 0) - Number(a.id || 0);
+    });
+  }
+
   // Ambil Semua Data & Analitik Real-Time Manager
   app.get("/api/adrienfandra/admin/data", verifyAdrienAdminMiddleware, async (_req: Request, res: Response) => {
     try {
@@ -1852,7 +1979,8 @@ export function setupAdrienStoreRoutes(app: Express) {
         }
       }));
 
-      const orders = ordersRes.rows || [];
+      const rawOrders = ordersRes.rows || [];
+      const orders = deduplicateAdrienOrders(rawOrders);
       const paidOrders = orders.filter((o: any) => o.payment_status === "PAID");
       const totalRevenue = paidOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
 
