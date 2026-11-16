@@ -36,9 +36,12 @@ export function formatDisplayNumber(val: number, maxDecimals: number = 8): strin
  * Parses numbers with commas or dots correctly.
  * Supports Indonesian format (1.000,50), US format (1,000.50), decimals with comma (0,5 / 12,5 / 59,67), decimals with dot (0.5 / 12.5 / 59.67), etc.
  * Guarantees that in Indonesian context:
- * - "1.000" is read as 1000 (NOT 1,0)
- * - "59,67" is read as 59.67 (NOT 5967)
+ * - "41000" / "41.000" is read as 41000
+ * - "41,000" is read as 41 (koma desimal)
+ * - "1.000" is read as 1000
+ * - "59,67" is read as 59.67
  * - "1.000,5" is read as 1000.5
+ * - "0,5" / "0.5" is read as 0.5
  */
 export function parseFormattedNumber(val: string | number | null | undefined): number {
   if (val === null || val === undefined || val === '') return 0;
@@ -51,54 +54,47 @@ export function parseFormattedNumber(val: string | number | null | undefined): n
   trimmed = trimmed.replace(/[^0-9.,-]/g, '');
   if (!trimmed || trimmed === '-' || trimmed === '.' || trimmed === ',') return 0;
 
-  // Case 1: Both . and , are present (e.g. 1.250.000,50 or 1,250,000.50)
-  if (trimmed.includes(',') && trimmed.includes('.')) {
-    if (trimmed.lastIndexOf(',') > trimmed.lastIndexOf('.')) {
-      // "1.250.000,50" -> . is thousand, , is decimal
-      return parseFloat(trimmed.replace(/\./g, '').replace(/,/g, '.')) || 0;
-    } else {
-      // "1,250,000.50" -> , is thousand, . is decimal
-      return parseFloat(trimmed.replace(/,/g, '')) || 0;
-    }
-  }
-
-  // Case 2: Only comma , is present (e.g. "0,5" or "12,50" or "59,67" or "5,967" or "1,000,000")
+  // Case 1: Comma is present -> Comma is strictly the decimal separator (Indonesian standard)
+  // E.g. "41,000" -> 41; "59,67" -> 59.67; "1.000,50" -> 1000.5; "0,5" -> 0.5
   if (trimmed.includes(',')) {
-    const commaCount = (trimmed.match(/,/g) || []).length;
-    if (commaCount > 1) {
-      // Multiple commas e.g. "1,000,000" (US format)
-      return parseFloat(trimmed.replace(/,/g, '')) || 0;
-    }
-    // Single comma: In Indonesian convention, single comma is ALWAYS decimal separator!
-    return parseFloat(trimmed.replace(/,/g, '.')) || 0;
+    const parts = cleanCommaParts(trimmed);
+    return parseFloat((parts.intPart || '0') + '.' + parts.decPart) || 0;
   }
 
-  // Case 3: Only dot . is present (e.g. "500.000", "300.000", "50.000", "1.000", "1.000.000", "0.5", "12.50", "59.67")
+  // Case 2: Starts with 0. or -0. (e.g. "0.5", "0.005") -> Decimal
+  if (trimmed.startsWith('0.') || trimmed.startsWith('-0.')) {
+    return parseFloat(trimmed) || 0;
+  }
+
+  // Case 3: Dot is present without comma
+  // If exactly 3 digits after single dot (e.g. "41.000", "1.000") or multiple dots ("1.000.000") -> Thousand separators!
+  // If 1 or 2 digits after dot and not preceded by thousands (e.g. "59.67") -> Decimal from English paste
   if (trimmed.includes('.')) {
-    const dotCount = (trimmed.match(/\./g) || []).length;
-    if (dotCount > 1) {
-      // Multiple dots e.g. "1.000.000" -> thousand separators
-      return parseFloat(trimmed.replace(/\./g, '')) || 0;
-    }
-    const parts = trimmed.split('.');
-    const intPart = parts[0];
-    const decPart = parts[1] || '';
-    // If integer part is 0 (e.g. "0.5", "0.005") or decimal part is NOT exactly 3 digits (e.g. "59.67", "1.5") -> decimal
-    if (intPart === '0' || intPart === '-0' || decPart.length !== 3) {
+    const dotParts = trimmed.split('.');
+    if (dotParts.length === 2 && dotParts[1].length !== 3) {
       return parseFloat(trimmed) || 0;
     }
-    // Exactly 3 digits after single dot (e.g. "1.000", "9.500") -> Indonesian thousand separator
     return parseFloat(trimmed.replace(/\./g, '')) || 0;
   }
 
   return parseFloat(trimmed) || 0;
 }
 
+function cleanCommaParts(val: string): { intPart: string; decPart: string } {
+  const parts = val.split(',');
+  const intPart = parts[0].replace(/\./g, '');
+  const decPart = parts.slice(1).join('').replace(/[^0-9]/g, '');
+  return { intPart, decPart };
+}
+
 /**
- * Format decimal inputs (such as Stock Lots, Crypto Units, Gold Grams, Prices, Investment Nominal).
- * - Displays dot (.) for thousands: e.g. typing 1000 immediately formats as 1.000 (bukan 1,0)
- * - Typing either comma (,) OR period (.) is read & displayed as comma (,) for decimals
- * - Preserves decimals cleanly: e.g. 59,67 or 1.000,5 or 0,0005
+ * Format decimal & currency inputs (Stock Lots, Crypto Units, Gold Grams, Prices, Nominal).
+ * Aturan standar perbankan / finansial Indonesia:
+ * - Mengetik angka bulat (misal 41000): otomatis tertulis "41.000" (titik ribuan), terbaca 41000.
+ * - Saat mengetik digit baru (misal dari 4.100 ditambah 0 jadi 41.000) atau menghapus digit,
+ *   titik ribuan menyesuaikan otomatis dan TIDAK AKAN PERNAH berubah jadi koma desimal.
+ * - HANYA jika pengguna menekan koma (misal 41,000 atau 59,67 atau 0,5): barulah angka setelah koma
+ *   menjadi desimal (41,000 terbaca 41; 59,67 terbaca 59.67; 0,5 terbaca 0.5; 1.000,5 terbaca 1000.5).
  */
 export function formatDecimalInput(val: string | number | null | undefined): string {
   if (val === null || val === undefined || val === '') return '';
@@ -107,70 +103,38 @@ export function formatDecimalInput(val: string | number | null | undefined): str
   clean = clean.replace(/[^0-9.,]/g, '');
   if (!clean) return '';
 
-  // If user types ',' or '.' as first character
+  // Jika input diawali koma atau titik (misal "," atau ".") -> otomatis "0,"
   if (clean === ',' || clean === '.') return '0,';
   if (clean.startsWith(',') || clean.startsWith('.')) {
-    clean = '0,' + clean.slice(1).replace(/[,.]/g, '');
+    return '0,' + clean.slice(1).replace(/[,.]/g, '');
+  }
+  // Jika diawali "0." (misal 0.5 atau 0.005) -> ubah ke format desimal Indonesia "0,"
+  if (clean.startsWith('0.') && !clean.includes(',')) {
+    return '0,' + clean.slice(2).replace(/[,.]/g, '');
   }
 
-  // Case 1: Comma already exists
+  // Kasus 1: Terdapat KOMA (,) -> Pengguna secara eksplisit mengetik koma untuk desimal
   if (clean.includes(',')) {
     const parts = clean.split(',');
+    // Bagian bulat di depan koma
     let intRaw = parts[0].replace(/\./g, '').replace(/\D/g, '');
     if (intRaw.length > 1) intRaw = intRaw.replace(/^0+/, '') || '0';
     if (!intRaw) intRaw = '0';
     const formattedInt = intRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+    // Bagian desimal di belakang koma (ambil semua digit setelah koma pertama)
     const decRaw = parts.slice(1).join('').replace(/[^0-9]/g, '');
-    return clean.endsWith(',') && decRaw === ''
-      ? formattedInt + ','
-      : formattedInt + ',' + decRaw;
+
+    // Jika pengguna baru saja menekan koma di ujung (misal "41,")
+    if (clean.endsWith(',') && decRaw === '') {
+      return formattedInt + ',';
+    }
+    return formattedInt + ',' + decRaw;
   }
 
-  // Case 2: User just typed '.' at the end -> convert to ',' (Indonesian decimal)
-  if (clean.endsWith('.')) {
-    let intRaw = clean.slice(0, -1).replace(/\./g, '').replace(/\D/g, '');
-    if (intRaw.length > 1) intRaw = intRaw.replace(/^0+/, '') || '0';
-    if (!intRaw) intRaw = '0';
-    const formattedInt = intRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    return formattedInt + ',';
-  }
-
-  // Case 3: Dot in middle
-  if (clean.includes('.')) {
-    const dotParts = clean.split('.');
-    if (dotParts.length > 2) {
-      let intRaw = clean.replace(/\./g, '');
-      if (intRaw.length > 1) intRaw = intRaw.replace(/^0+/, '') || '0';
-      return intRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    }
-
-    const [p0, p1] = dotParts;
-    if (p0 === '0') {
-      return '0,' + p1;
-    }
-    // Backspacing a thousand separator like '1.00'
-    if (p1 === '0' || p1 === '00') {
-      let intRaw = clean.replace(/\./g, '');
-      if (intRaw.length > 1) intRaw = intRaw.replace(/^0+/, '') || '0';
-      return intRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    }
-    // 3 digits after dot, e.g. '1.000' -> Indonesian thousand (1000)
-    if (p1.length === 3) {
-      let intRaw = clean.replace(/\./g, '');
-      if (intRaw.length > 1) intRaw = intRaw.replace(/^0+/, '') || '0';
-      return intRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    }
-
-    // Decimal with dot from paste/English (e.g. '59.67') -> convert to decimal comma
-    let intRaw = p0.replace(/\D/g, '');
-    if (intRaw.length > 1) intRaw = intRaw.replace(/^0+/, '') || '0';
-    if (!intRaw) intRaw = '0';
-    const formattedInt = intRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    return formattedInt + ',' + p1;
-  }
-
-  // Case 4: Plain integer -> format with thousand dots
-  let intRaw = clean.replace(/\D/g, '');
+  // Kasus 2: Angka biasa (tanpa koma). Semua titik adalah pemisah ribuan.
+  // Hilangkan seluruh titik pemisah lama lalu format ulang dengan titik ribuan secara presisi.
+  let intRaw = clean.replace(/\./g, '').replace(/\D/g, '');
   if (intRaw.length > 1) intRaw = intRaw.replace(/^0+/, '') || '0';
   if (!intRaw) return '';
   return intRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
